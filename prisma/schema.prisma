@@ -1,0 +1,192 @@
+// engpk · Prisma schema
+//
+// 数据模型（决策 #15：起步只用 Postgres + Prisma）
+//
+// 表清单：
+//   User           — 学生用户（昵称、头像、累计积分）
+//   Lesson         — 一节课程（指令快照、风格 token、状态）
+//   Scene          — 课程内单页场景（type + payload + actions JSON）
+//   Teammate       — 课程绑定的 AI 队友（persona + 累计积分）
+//   ScoreEvent     — 积分流水（防作弊预留扩展点：clientReportedAt / serverReceivedAt）
+//   MetricEvent    — 业务指标埋点（生成耗时、讲解量、跳出等）
+//   ConsentRecord  — 监护人同意记录（摄像头等敏感能力，24h TTL）
+//
+// 注：决策 #12 MVP 不做服务端积分校验，但 ScoreEvent 已预留双时间戳字段。
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 用户 ====================
+
+model User {
+  id        String   @id @default(cuid())
+  nickname  String
+  avatar    String?
+  /// 历史累计积分（跨课程）
+  totalScore Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lessons      Lesson[]
+  scoreEvents  ScoreEvent[]
+  consents     ConsentRecord[]
+
+  @@index([createdAt])
+}
+
+// ==================== 课程 ====================
+
+model Lesson {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 课程标题（取自封面）
+  title           String
+  /// 用户原始输入（多行指令文本）
+  rawInstructions String   @db.Text
+  /// 解析后的指令数组（PageInstruction[]）
+  instructions    Json
+  /// 课程风格 token（封面页生成后写入）
+  styleToken      Json?
+  /// 课程整体状态：generating / ready / partial-failure
+  status          String   @default("generating")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  scenes      Scene[]
+  teammates   Teammate[]
+  scoreEvents ScoreEvent[]
+  metrics     MetricEvent[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+// ==================== 场景 ====================
+
+model Scene {
+  id          String   @id @default(cuid())
+  lessonId    String
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  /// 顺序（与 instruction.index 对应，1-based）
+  order       Int
+  /// SceneType：cover / warmup / video-review / game / discussion / article / ending
+  type        String
+  /// 来源 PageInstruction（冗余存放便于查询）
+  instruction Json
+  /// 各类场景特定 payload（CoverScenePayload | WarmupScenePayload | ...）
+  payload     Json
+  /// Action[]（含 engpk 扩展 action）
+  actions     Json
+  /// 参与的 agent id 列表
+  agentIds    String[]
+  /// 生成状态：pending / generating / ready / failed
+  status      String   @default("pending")
+  /// 失败时的错误信息
+  error       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  scoreEvents ScoreEvent[]
+  metrics     MetricEvent[]
+
+  @@unique([lessonId, order])
+  @@index([lessonId])
+  @@index([status])
+}
+
+// ==================== AI 队友 ====================
+
+model Teammate {
+  id        String   @id @default(cuid())
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  nickname  String
+  avatar    String
+  /// scholar / energetic / creative / rookie / veteran
+  archetype String
+  bio       String
+  voice     String?
+  /// 本课累计积分（运行时由 scoreBus 维护）
+  score     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  scoreEvents ScoreEvent[]
+
+  @@index([lessonId])
+}
+
+// ==================== 积分流水 ====================
+
+model ScoreEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId   String
+  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  sceneId    String?
+  scene      Scene?   @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  teammateId String?
+  teammate   Teammate? @relation(fields: [teammateId], references: [id], onDelete: SetNull)
+  /// target='user' / agentId
+  target     String
+  /// 积分增量（可正可负）
+  delta      Int
+  /// 原因
+  reason     String
+  /// 来源：rhythm-game / video-performance / game-complete / discussion-reward / encouragement / ...
+  source     String
+  /// 客户端事件发生时间（用于排序和审计）
+  clientReportedAt DateTime
+  /// 服务端接收时间（防作弊扩展点：未来比对差值 + 频率限制）
+  serverReceivedAt DateTime @default(now())
+
+  @@index([userId, lessonId])
+  @@index([lessonId, serverReceivedAt])
+  @@index([sceneId])
+}
+
+// ==================== 业务指标埋点 ====================
+
+model MetricEvent {
+  id        String   @id @default(cuid())
+  lessonId  String?
+  lesson    Lesson?  @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  sceneId   String?
+  scene     Scene?   @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  /// 事件名：generation.duration / narration.length / scene.dropout / parse.fallback / ...
+  name      String
+  /// 数值指标（可空）
+  value     Float?
+  /// 维度（如 sceneType）
+  tags      Json?
+  /// 详细 payload
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([name, createdAt])
+  @@index([lessonId, name])
+}
+
+// ==================== 监护人同意 ====================
+
+model ConsentRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 同意能力：camera-performance / microphone / ...
+  feature   String
+  /// 过期时间（24h TTL，决策 #9）
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([userId, feature])
+  @@index([expiresAt])
+}
