@@ -70,7 +70,8 @@ next-env.d.ts
 /logs
 
 # docs
-/docs
+/docs/*
+!/docs/engpk/
 # Eval results
 eval/whiteboard-layout/results/
 eval/outline-language/results/
