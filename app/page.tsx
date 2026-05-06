@@ -508,6 +508,20 @@ function HomePage() {
           {t('home.slogan')}
         </motion.p>
 
+        {/* ── engpk CTA（决策 #7：保留视觉，功能入口指向新工具） ── */}
+        <motion.button
+          type="button"
+          onClick={() => router.push('/new')}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.32 }}
+          className="mb-6 inline-flex items-center gap-2 rounded-full border border-purple-300/60 bg-gradient-to-r from-purple-500/10 to-pink-500/10 px-4 py-2 text-xs font-medium text-purple-700 shadow-sm transition-all hover:from-purple-500/20 hover:to-pink-500/20 dark:border-purple-700/50 dark:text-purple-300"
+        >
+          <Sparkles className="size-3.5" />
+          engpk · 互动课件生成（逐页指令式 · 7 类场景 · 边播边生成）
+          <span className="opacity-70">→</span>
+        </motion.button>
+
         {/* ── Unified input area ── */}
         <motion.div
           initial={{ opacity: 0, scale: 0.97 }}
