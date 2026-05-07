@@ -1,0 +1,1 @@
+export { EndingSceneView } from './EndingSceneView';

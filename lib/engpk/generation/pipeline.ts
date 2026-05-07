@@ -35,6 +35,7 @@ import {
 } from './lesson-registry';
 import { generateCoverScene } from './scenes/generate-cover-scene';
 import { generateArticleScene } from './scenes/generate-article-scene';
+import { generateEndingScene } from './scenes/generate-ending-scene';
 import { generateTeammates } from './generate-teammates';
 
 export interface RunPipelineInput {
@@ -224,6 +225,13 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
         });
       case 'article':
         return generateArticleScene({
+          instruction: opts.instruction,
+          resolvedModel: opts.resolvedModel,
+          teammateIds: opts.teammateIds,
+          lessonId: opts.lessonId,
+        });
+      case 'ending':
+        return generateEndingScene({
           instruction: opts.instruction,
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,

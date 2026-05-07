@@ -20,6 +20,7 @@ import { useParams } from 'next/navigation';
 import { SceneShell } from '@/components/scene-shell';
 import { CoverSceneView } from '@/components/scene-cover';
 import { ArticleSceneView } from '@/components/scene-article';
+import { EndingSceneView } from '@/components/scene-ending';
 import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
 import type { Lesson, Scene } from '@/lib/engpk/types/scene-v2';
 import { SCENE_MODE_LABELS } from '@/lib/engpk/instruction/types';
@@ -143,6 +144,8 @@ function SceneRouter({
       return <CoverSceneView scene={scene} onContinue={onContinue} />;
     case 'article':
       return <ArticleSceneView scene={scene} onContinue={onContinue} />;
+    case 'ending':
+      return <EndingSceneView scene={scene} onContinue={onContinue} />;
     default:
       return <ScenePlaceholder scene={scene} onContinue={onContinue} />;
   }
