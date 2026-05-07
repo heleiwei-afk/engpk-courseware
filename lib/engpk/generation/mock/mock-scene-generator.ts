@@ -123,9 +123,11 @@ export async function mockGenerateScene(
         ...base,
         type: 'article',
         payload: {
+          heading: instruction.description.slice(0, 20) || '图文讲解',
           blocks: [
-            { type: 'text', text: instruction.content },
+            { type: 'paragraph', text: instruction.content },
           ],
+          focusBlockIndexes: [0],
         },
       };
 

@@ -129,13 +129,21 @@ export interface DiscussionScenePayload {
    */
 }
 
-/** 图文类 payload（沿用 OpenMAIC slide 结构） */
+/** 图文块类型（engpk 自带，不依赖旧 slide elements） */
+export type ArticleBlock =
+  | { type: 'paragraph'; text: string }
+  | { type: 'bullet-list'; items: string[] }
+  | { type: 'highlight'; text: string }
+  | { type: 'image'; prompt: string; caption?: string; url?: string };
+
+/** 图文类 payload */
 export interface ArticleScenePayload {
-  /**
-   * 图文块；引用 OpenMAIC slide elements 的形态。
-   * 为避免循环依赖，这里宽松定义为 unknown[]，由 article 渲染器具体消费。
-   */
-  blocks: unknown[];
+  /** 标题 */
+  heading: string;
+  /** 图文块序列 */
+  blocks: ArticleBlock[];
+  /** 老师讲解词对应的 block index（与 actions 里 speech 的顺序一一对应） */
+  focusBlockIndexes?: number[];
   /** 此场景不限制讲解量（决策 #3 例外） */
 }
 

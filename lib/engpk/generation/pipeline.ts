@@ -1,19 +1,17 @@
 /**
  * engpk · 生成管线
  *
- * 输入：原始指令文本 + 解析批次结果 + ResolvedModel（可选）
- * 输出：异步 generator，逐步 yield SSE 事件
- *
  * 流程（决策 #13：边播边生成）：
  *   1. parsed       立刻发（由 route handler 触发）
- *   2. teammates    mock 生成 3 位队友（PR-11 接真生成器）
+ *   2. teammates    实 LLM 生成 3 位队友（失败降级 mock）
  *   3. style        先生成封面 → 封面内部产出 styleToken → 发 style-ready
  *      若指令里没有封面页，就生成默认 styleToken 后直接发
- *   4. scene-ready  并发生成其它场景；完成一页推一页
+ *   4. scene-ready  顺序生成其它场景；完成一页推一页
  *                   失败的页发 scene-error，不阻塞其它
  *   5. done         全部完成后发汇总
  *
- * PR-10：封面类已切到真 LLM 生成（generateCoverScene）；其它类型仍走 mock。
+ * 真生成器已接入：cover / teammates / article。
+ * 其它类型（warmup / video-review / game / discussion / ending）暂仍走 mock。
  */
 
 import type {
@@ -23,6 +21,7 @@ import type {
 import type { Lesson, Scene, StyleToken } from '@/lib/engpk/types/scene-v2';
 import type { PageInstruction } from '@/lib/engpk/instruction/types';
 import type { ResolvedModel } from '@/lib/server/resolve-model';
+import type { AITeammate } from '@/lib/engpk/types/teammate';
 import {
   mockGenerateScene,
   mockStyleToken,
@@ -35,16 +34,14 @@ import {
   upsertScene,
 } from './lesson-registry';
 import { generateCoverScene } from './scenes/generate-cover-scene';
+import { generateArticleScene } from './scenes/generate-article-scene';
+import { generateTeammates } from './generate-teammates';
 
 export interface RunPipelineInput {
   lessonId: string;
   rawInstructions: string;
   parseResult: GenerationParsedPayload;
-  /** 外部中断信号 */
   signal?: AbortSignal;
-  /**
-   * 已解析的模型；为空表示路由未传入（当前的 mock 链路也支持，封面会降级为 mock）
-   */
   resolvedModel?: ResolvedModel;
 }
 
@@ -54,7 +51,6 @@ export async function* runMockGenerationPipeline(
   const { lessonId, rawInstructions, parseResult, signal, resolvedModel } = input;
   const instructions = parseResult.batch.validInstructions;
 
-  // 没有合法指令 → 整体失败
   if (instructions.length === 0) {
     yield {
       type: 'error',
@@ -70,15 +66,26 @@ export async function* runMockGenerationPipeline(
     return;
   }
 
-  // ========== 1. 生成队友 ==========
-  if (signal?.aborted) return;
-  const teammates = mockGenerateTeammates();
-  const teammateIds = teammates.map((t) => t.id);
-
-  // 先占位写入 lesson（空 scenes）
+  // 从封面推 title（用于 teammate prompt 与 lesson title）
   const firstCover = instructions.find((i) => i.mode === 'cover');
   const title =
     firstCover?.content?.trim() || firstCover?.description?.trim() || '新课堂';
+
+  // ========== 1. 生成队友（真 LLM 或 mock） ==========
+  if (signal?.aborted) return;
+  let teammates: AITeammate[];
+  try {
+    teammates = resolvedModel
+      ? await generateTeammates({
+          lessonTitle: title,
+          resolvedModel,
+          lessonId,
+        })
+      : mockGenerateTeammates();
+  } catch {
+    teammates = mockGenerateTeammates();
+  }
+  const teammateIds = teammates.map((t) => t.id);
 
   const lesson: Lesson = {
     id: lessonId,
@@ -94,7 +101,7 @@ export async function* runMockGenerationPipeline(
 
   yield { type: 'teammates-ready', data: { lessonId, teammates } };
 
-  // ========== 2. 先生成封面（或默认 style）==========
+  // ========== 2. 先生成封面（或默认 style） ==========
   if (signal?.aborted) return;
   let styleToken: StyleToken = mockStyleToken();
 
@@ -119,13 +126,8 @@ export async function* runMockGenerationPipeline(
       yield { type: 'style-ready', data: { lessonId, styleToken } };
       yield {
         type: 'scene-ready',
-        data: {
-          lessonId,
-          scene: coverScene,
-          order: coverScene.order,
-        },
+        data: { lessonId, scene: coverScene, order: coverScene.order },
       };
-      // 已生成的封面从剩余列表剔除
       sortedInstructions.splice(coverIdx, 1);
     } catch (err) {
       yield {
@@ -138,16 +140,14 @@ export async function* runMockGenerationPipeline(
           retryable: true,
         },
       };
-      // 封面失败仍然发一个默认 style，让其它页可以继续
       yield { type: 'style-ready', data: { lessonId, styleToken } };
       sortedInstructions.splice(coverIdx, 1);
     }
   } else {
-    // 没有封面页，发默认 style
     yield { type: 'style-ready', data: { lessonId, styleToken } };
   }
 
-  // ========== 3. 顺序生成剩余场景（其它类型仍走 mock）==========
+  // ========== 3. 顺序生成剩余场景 ==========
   let succeeded = coverIdx >= 0 ? 1 : 0;
   let failed = 0;
 
@@ -164,11 +164,7 @@ export async function* runMockGenerationPipeline(
       upsertScene(lessonId, scene);
       yield {
         type: 'scene-ready',
-        data: {
-          lessonId,
-          scene,
-          order: scene.order,
-        },
+        data: { lessonId, scene, order: scene.order },
       };
       succeeded += 1;
     } catch (err) {
@@ -217,20 +213,33 @@ interface GenerateOneOptions {
 }
 
 async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
-  // 每个 mode 的真实生成器在后续 PR 接入；
-  // 这里 cover 已切真 LLM，其它仍走 mock。
-  if (opts.instruction.mode === 'cover' && opts.resolvedModel) {
-    return generateCoverScene({
-      instruction: opts.instruction,
-      resolvedModel: opts.resolvedModel,
-      teammateIds: opts.teammateIds,
-      lessonId: opts.lessonId,
-    });
+  if (opts.resolvedModel) {
+    switch (opts.instruction.mode) {
+      case 'cover':
+        return generateCoverScene({
+          instruction: opts.instruction,
+          resolvedModel: opts.resolvedModel,
+          teammateIds: opts.teammateIds,
+          lessonId: opts.lessonId,
+        });
+      case 'article':
+        return generateArticleScene({
+          instruction: opts.instruction,
+          resolvedModel: opts.resolvedModel,
+          teammateIds: opts.teammateIds,
+          lessonId: opts.lessonId,
+        });
+      default:
+        return mockGenerateScene(
+          opts.instruction,
+          opts.styleToken,
+          opts.teammateIds,
+        );
+    }
   }
   return mockGenerateScene(opts.instruction, opts.styleToken, opts.teammateIds);
 }
 
-/** 便于测试：生成一个 lessonId。 */
 export function makeLessonId(): string {
   return uuid();
 }
