@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { SceneShell } from '@/components/scene-shell';
+import { PlaybackControls } from '@/components/scene-shell/PlaybackControls';
 import { CoverSceneView } from '@/components/scene-cover';
 import { ArticleSceneView } from '@/components/scene-article';
 import { EndingSceneView } from '@/components/scene-ending';
@@ -27,6 +28,8 @@ import { WarmupSceneView } from '@/components/scene-warmup';
 import { VideoReviewSceneView } from '@/components/scene-video-review';
 import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
 import { useEngpkFlush } from '@/lib/engpk/client/use-engpk-flush';
+import { usePlaybackRuntime } from '@/lib/engpk/client/use-playback-runtime';
+import { useKeyboardShortcuts } from '@/lib/engpk/client/use-keyboard-shortcuts';
 import type { Lesson, Scene } from '@/lib/engpk/types/scene-v2';
 import { SCENE_MODE_LABELS } from '@/lib/engpk/instruction/types';
 
@@ -37,9 +40,14 @@ export default function EngpkClassroomPage() {
   // 积分 + 指标批量 flush 到后端
   useEngpkFlush({ userId: 'dev-user', disabled: !lessonId });
 
+  // ─── Playback Engine ───────────────────────────────────────────
+  const playback = usePlaybackRuntime();
+  const [speed, setSpeed] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const hydrate = useClassroomSession((s) => s.hydrate);
   const upsertScene = useClassroomSession((s) => s.upsertScene);
-  const selectScene = useClassroomSession((s) => s.selectScene);
   const scenes = useClassroomSession((s) => s.scenes);
   const currentIndex = useClassroomSession((s) => s.currentSceneIndex);
   const [error, setError] = useState<string | null>(null);
@@ -105,12 +113,72 @@ export default function EngpkClassroomPage() {
     return () => clearInterval(timer);
   }, [fetchLesson, lessonStatus]);
 
+  // ─── Load scenes into playback engine + auto-start ───────────
+  const startedRef = useRef(false);
+  useEffect(() => {
+    if (scenes.length > 0) {
+      playback.loadScenes(scenes);
+      // Auto-start on first load when lesson is ready
+      if (!startedRef.current && (lessonStatus === 'ready' || lessonStatus === 'partial-failure')) {
+        startedRef.current = true;
+        playback.start();
+      }
+    }
+  }, [scenes, lessonStatus, playback]);
+
+  // ─── Fullscreen handling ─────────────────────────────────────
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      containerRef.current.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  // ─── Keyboard shortcuts ──────────────────────────────────────
+  const handlePlayPause = useCallback(() => {
+    if (playback.state.status === 'playing') playback.pause();
+    else if (playback.state.status === 'paused') playback.resume();
+    else if (playback.state.status === 'idle') playback.start();
+  }, [playback]);
+
+  const handlePrevScene = useCallback(() => {
+    const idx = Math.max(0, playback.state.currentSceneIndex - 1);
+    playback.goToScene(idx);
+  }, [playback]);
+
+  const handleNextScene = useCallback(() => {
+    const idx = Math.min(scenes.length - 1, playback.state.currentSceneIndex + 1);
+    playback.goToScene(idx);
+  }, [playback, scenes.length]);
+
+  useKeyboardShortcuts({
+    onPlayPause: handlePlayPause,
+    onPrevScene: handlePrevScene,
+    onNextScene: handleNextScene,
+    onFullscreenToggle: toggleFullscreen,
+  });
+
+  // ─── Speed change ────────────────────────────────────────────
+  const handleSpeedChange = useCallback((s: number) => {
+    setSpeed(s);
+    playback.setSpeed(s);
+  }, [playback]);
+
   const currentScene = scenes[currentIndex];
 
   return (
-    <SceneShell>
-      <div className="flex h-full flex-col">
-        <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs">
+    <div ref={containerRef} className="flex h-screen flex-col">
+      <SceneShell>
+        <div className="flex h-full flex-col">
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs">
           <Link
             href="/new"
             className="text-muted-foreground hover:text-foreground"
@@ -137,9 +205,7 @@ export default function EngpkClassroomPage() {
           ) : currentScene ? (
             <SceneRouter
               scene={currentScene}
-              onContinue={() =>
-                selectScene(Math.min(currentIndex + 1, scenes.length - 1))
-              }
+              onContinue={() => handleNextScene()}
             />
           ) : (
             <Centered text="等待第一页生成完成…" />
@@ -147,6 +213,17 @@ export default function EngpkClassroomPage() {
         </div>
       </div>
     </SceneShell>
+    <PlaybackControls
+      status={playback.state.status}
+      onPlay={() => playback.start()}
+      onPause={() => playback.pause()}
+      onResume={() => playback.resume()}
+      speed={speed}
+      onSpeedChange={handleSpeedChange}
+      onFullscreen={toggleFullscreen}
+      isFullscreen={isFullscreen}
+    />
+    </div>
   );
 }
 
