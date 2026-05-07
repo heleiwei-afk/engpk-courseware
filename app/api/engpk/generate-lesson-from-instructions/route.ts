@@ -15,7 +15,7 @@
 
 import { NextRequest } from 'next/server';
 import { createLogger } from '@/lib/logger';
-import { parseWithFallback } from '@/lib/engpk/instruction';
+import { parseWithFallback } from '@/lib/engpk/instruction/server';
 import { formatSSE, type GenerationEvent } from '@/lib/engpk/types/generation-events';
 import {
   makeLessonId,

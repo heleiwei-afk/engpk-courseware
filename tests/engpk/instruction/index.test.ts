@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseLocally,
   parseWithFallback,
-} from '@/lib/engpk/instruction';
+} from '@/lib/engpk/instruction/server';
 
 describe('parseLocally — 多行解析', () => {
   it('混合多行：合法 + 异常', () => {
