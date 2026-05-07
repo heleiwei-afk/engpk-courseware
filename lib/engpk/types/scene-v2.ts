@@ -198,20 +198,45 @@ export interface SceneBase {
   error?: string;
 }
 
-/** 类型化的具体场景 */
-export interface Scene<T extends SceneType = SceneType> extends SceneBase {
-  type: T;
-  payload: ScenePayloadMap[T];
-}
+/** 类型化的具体场景（按 SceneType 离散联合，便于 TS 做判别式收窄） */
+export type Scene =
+  | CoverScene
+  | WarmupScene
+  | VideoReviewScene
+  | GameScene
+  | DiscussionScene
+  | ArticleScene
+  | EndingScene;
 
 /** 各具体场景类型别名 */
-export type CoverScene = Scene<'cover'>;
-export type WarmupScene = Scene<'warmup'>;
-export type VideoReviewScene = Scene<'video-review'>;
-export type GameScene = Scene<'game'>;
-export type DiscussionScene = Scene<'discussion'>;
-export type ArticleScene = Scene<'article'>;
-export type EndingScene = Scene<'ending'>;
+export interface CoverScene extends SceneBase {
+  type: 'cover';
+  payload: CoverScenePayload;
+}
+export interface WarmupScene extends SceneBase {
+  type: 'warmup';
+  payload: WarmupScenePayload;
+}
+export interface VideoReviewScene extends SceneBase {
+  type: 'video-review';
+  payload: VideoReviewScenePayload;
+}
+export interface GameScene extends SceneBase {
+  type: 'game';
+  payload: GameScenePayload;
+}
+export interface DiscussionScene extends SceneBase {
+  type: 'discussion';
+  payload: DiscussionScenePayload;
+}
+export interface ArticleScene extends SceneBase {
+  type: 'article';
+  payload: ArticleScenePayload;
+}
+export interface EndingScene extends SceneBase {
+  type: 'ending';
+  payload: EndingScenePayload;
+}
 
 // ==================== Lesson ====================
 

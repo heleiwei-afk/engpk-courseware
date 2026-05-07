@@ -7,3 +7,4 @@
 export * from './action-ext';
 export * from './scene-v2';
 export * from './teammate';
+export * from './generation-events';

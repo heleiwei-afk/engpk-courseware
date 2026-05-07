@@ -6,28 +6,37 @@
  * 决策 #6：纯文本多行输入 + 实时预览。
  * 决策 #7：首页保留 MAIC 视觉，所有功能入口指向 /new。
  *
- * 当前 PR-07：仅完成布局与本地预览；
- * 提交动作 stub 为 alert，PR-08 接 SSE 生成。
+ * PR-08：接入 /api/engpk/generate-lesson-from-instructions SSE。
+ * 流程：点"生成课件" → SSE 开始 → 收到第一个 scene-ready 立即跳转 /classroom-engpk/[id]
+ *      → 课堂页继续轮询/订阅获取后续场景。
  */
 
-import { useState } from 'react';
-import { InstructionEditor } from '@/components/engpk-editor/InstructionEditor';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { InstructionEditor } from '@/components/engpk-editor/InstructionEditor';
+import { useGenerationSSE } from '@/lib/engpk/client/use-generation-sse';
 
 export default function NewLessonPage() {
-  const [submitting, setSubmitting] = useState(false);
+  const router = useRouter();
+  const { state, start, abort, reset } = useGenerationSSE();
+  const [navigated, setNavigated] = useState(false);
+
+  // 收到 lessonId（parsed 帧）就立刻跳，无需等第一个 scene-ready：
+  // 课堂页会自己轮询补齐。
+  useEffect(() => {
+    if (!navigated && state.lessonId && state.status === 'streaming') {
+      setNavigated(true);
+      router.push(`/classroom-engpk/${state.lessonId}`);
+    }
+  }, [navigated, state.lessonId, state.status, router]);
+
+  const submitting =
+    state.status === 'connecting' || state.status === 'streaming';
 
   function handleSubmit(rawText: string) {
-    setSubmitting(true);
-    // PR-08 会替换为：fetch /api/generate-lesson-from-instructions + SSE
-    // 这里仅占位，提示用户后续 PR 才接通
-    // eslint-disable-next-line no-alert
-    alert(
-      '生成接口尚未接通（PR-08 待实现）。\n\n当前已校验的指令文本：\n\n' +
-        rawText.slice(0, 200) +
-        (rawText.length > 200 ? '…' : ''),
-    );
-    setSubmitting(false);
+    setNavigated(false);
+    start(rawText);
   }
 
   return (
@@ -43,16 +52,37 @@ export default function NewLessonPage() {
           <span className="text-muted-foreground/50">/</span>
           <h1 className="text-base font-semibold">engpk · 互动课件生成</h1>
         </div>
-        <div className="text-xs text-muted-foreground">
-          逐页指令式生成 · 7 类场景 · 边播边生成
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          {submitting ? (
+            <button
+              type="button"
+              onClick={() => abort()}
+              className="rounded-md border border-border bg-background px-2 py-1 hover:bg-muted"
+            >
+              停止生成
+            </button>
+          ) : null}
+          {state.status === 'error' ? (
+            <button
+              type="button"
+              onClick={reset}
+              className="rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1 text-destructive hover:bg-destructive/10"
+            >
+              失败 · 重置
+            </button>
+          ) : null}
+          <span>逐页指令式 · 7 类场景 · 边播边生成</span>
         </div>
       </header>
 
+      {state.status === 'error' && state.error ? (
+        <div className="border-b border-destructive/30 bg-destructive/5 px-6 py-2 text-sm text-destructive">
+          ⚠ {state.error.code} · {state.error.message}
+        </div>
+      ) : null}
+
       <main className="flex-1 overflow-hidden p-6">
-        <InstructionEditor
-          onSubmit={handleSubmit}
-          submitting={submitting}
-        />
+        <InstructionEditor onSubmit={handleSubmit} submitting={submitting} />
       </main>
     </div>
   );
