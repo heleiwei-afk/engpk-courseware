@@ -1,3 +1,9 @@
+<!-- engpk fork notice -->
+> **engpk 分支说明**：本仓库在 OpenMAIC 基础上增加了 `engpk` 互动课件生成工具（`lib/engpk/` + `components/scene-*/` + `/new` + `/classroom-engpk/`）。
+> 原 OpenMAIC 功能完整保留。engpk 相关设计文档见 [`docs/engpk/DESIGN.md`](docs/engpk/DESIGN.md)。
+>
+> **许可证**：继承 AGPL-3.0。商业使用需联系 thu_maic@tsinghua.edu.cn。详见 [`docs/engpk/LICENSE-NOTICE.md`](docs/engpk/LICENSE-NOTICE.md)。
+
 <!-- <p align="center">
   <img src="assets/logo-horizontal.png" alt="OpenMAIC" width="420"/>
 </p> -->
