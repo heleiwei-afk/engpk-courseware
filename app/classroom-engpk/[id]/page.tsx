@@ -26,12 +26,16 @@ import { GameSceneView } from '@/components/scene-game';
 import { WarmupSceneView } from '@/components/scene-warmup';
 import { VideoReviewSceneView } from '@/components/scene-video-review';
 import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
+import { useEngpkFlush } from '@/lib/engpk/client/use-engpk-flush';
 import type { Lesson, Scene } from '@/lib/engpk/types/scene-v2';
 import { SCENE_MODE_LABELS } from '@/lib/engpk/instruction/types';
 
 export default function EngpkClassroomPage() {
   const params = useParams<{ id: string }>();
   const lessonId = params?.id;
+
+  // 积分 + 指标批量 flush 到后端
+  useEngpkFlush({ userId: 'dev-user', disabled: !lessonId });
 
   const hydrate = useClassroomSession((s) => s.hydrate);
   const upsertScene = useClassroomSession((s) => s.upsertScene);
