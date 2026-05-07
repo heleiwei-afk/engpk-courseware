@@ -121,8 +121,11 @@ export default function EngpkClassroomPage() {
           <span className="font-mono text-muted-foreground">
             lesson: {lessonId?.slice(0, 8)}…
           </span>
-          <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            {lessonStatus === 'generating' ? '生成中…' : lessonStatus === 'ready' ? '就绪' : '部分失败'}
+          <span className="ml-auto flex items-center gap-2">
+            <ShareButton />
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              {lessonStatus === 'generating' ? '生成中…' : lessonStatus === 'ready' ? '就绪' : '部分失败'}
+            </span>
           </span>
         </div>
 
@@ -231,5 +234,38 @@ function ScenePlaceholder({
         </button>
       </div>
     </div>
+  );
+}
+
+function ShareButton() {
+  const [copied, setCopied] = useState(false);
+
+  function handleShare() {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      // fallback: select + copy
+      const input = document.createElement('input');
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleShare}
+      className="rounded-md border border-border bg-background px-2 py-1 text-[10px] font-medium hover:bg-muted transition-colors"
+      title="复制课堂链接"
+    >
+      {copied ? '已复制 ✓' : '分享链接'}
+    </button>
   );
 }
