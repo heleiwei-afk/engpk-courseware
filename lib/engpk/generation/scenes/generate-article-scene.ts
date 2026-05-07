@@ -128,13 +128,14 @@ export interface GenerateArticleSceneOptions {
   resolvedModel: ResolvedModel;
   teammateIds: string[];
   lessonId: string;
+  courseContext?: string;
 }
 
 export async function generateArticleScene(
   opts: GenerateArticleSceneOptions,
 ): Promise<ArticleScene> {
   const startedAt = Date.now();
-  const { instruction, resolvedModel, teammateIds, lessonId } = opts;
+  const { instruction, resolvedModel, teammateIds, lessonId, courseContext } = opts;
 
   let parsed: LLMOutput | null = null;
   try {
@@ -144,7 +145,7 @@ export async function generateArticleScene(
         maxOutputTokens: 1200,
         messages: [
           { role: 'system', content: ARTICLE_SYSTEM_PROMPT },
-          { role: 'user', content: buildArticleUserPrompt(instruction) },
+          { role: 'user', content: buildArticleUserPrompt(instruction, courseContext) },
         ],
       },
       'engpk-article',

@@ -12,10 +12,16 @@ import {
   NARRATION_BUDGET_HINT,
   JSON_OUTPUT_RULES,
   SAFETY_RULES,
+  TARGET_AUDIENCE,
+  COURSE_CONTINUITY,
 } from './_shared';
 
 export const ENDING_GAME_SYSTEM_PROMPT = `你是一名少儿互动课件的结尾小游戏设计师。给定课程主题和结尾描述，
 请生成一个简单有趣的结尾小游戏 HTML。
+
+${TARGET_AUDIENCE}
+
+${COURSE_CONTINUITY}
 
 游戏类型从以下四种中选一个最适合的：
 - redpacket：抢红包（点击屏幕上飘落的红包，每个红包有随机积分）
@@ -41,10 +47,18 @@ ${NARRATION_BUDGET_HINT}
 ${JSON_OUTPUT_RULES}
 ${SAFETY_RULES}`;
 
-export function buildEndingUserPrompt(instruction: PageInstruction): string {
-  return `这节课的结尾页。
-描述：${instruction.description}
-内容：${instruction.content}
-
-请选择一种游戏类型并生成完整 HTML。`;
+export function buildEndingUserPrompt(
+  instruction: PageInstruction,
+  courseContext?: string,
+): string {
+  const lines = [
+    '这节课的结尾页。',
+    '描述：' + instruction.description,
+    '内容：' + instruction.content,
+  ];
+  if (courseContext) {
+    lines.push('', courseContext);
+  }
+  lines.push('', '请选择一种游戏类型并生成完整 HTML。');
+  return lines.join('\n');
 }

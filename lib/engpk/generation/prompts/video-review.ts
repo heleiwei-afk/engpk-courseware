@@ -6,10 +6,23 @@
  */
 
 import type { PageInstruction } from '@/lib/engpk/instruction/types';
-import { NARRATION_BUDGET_HINT, JSON_OUTPUT_RULES, SAFETY_RULES } from './_shared';
+import {
+  NARRATION_BUDGET_HINT,
+  JSON_OUTPUT_RULES,
+  SAFETY_RULES,
+  TARGET_AUDIENCE,
+  COURSE_CONTINUITY,
+} from './_shared';
+import { SPEECH_GUIDELINES_LITE } from './_shared/speech-guidelines';
 
 export const VIDEO_REVIEW_SYSTEM_PROMPT = `你是一名少儿互动课件的视频赏析环节设计师。给定视频描述，
 请生成一句老师引导语和一个"表演检测 prompt"。
+
+${TARGET_AUDIENCE}
+
+${SPEECH_GUIDELINES_LITE}
+
+${COURSE_CONTINUITY}
 
 输出 JSON：
 {
@@ -26,10 +39,18 @@ ${NARRATION_BUDGET_HINT}
 ${JSON_OUTPUT_RULES}
 ${SAFETY_RULES}`;
 
-export function buildVideoReviewUserPrompt(instruction: PageInstruction): string {
-  return `这是一节课的第 ${instruction.index} 页，模式是【视频赏析】。
-描述：${instruction.description}
-视频资源：${instruction.content}
-
-请输出 JSON。`;
+export function buildVideoReviewUserPrompt(
+  instruction: PageInstruction,
+  courseContext?: string,
+): string {
+  const lines = [
+    '这是一节课的第 ' + instruction.index + ' 页，模式是【视频赏析】。',
+    '描述：' + instruction.description,
+    '视频资源：' + instruction.content,
+  ];
+  if (courseContext) {
+    lines.push('', courseContext);
+  }
+  lines.push('', '请输出 JSON。');
+  return lines.join('\n');
 }

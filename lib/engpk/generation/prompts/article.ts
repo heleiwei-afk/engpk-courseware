@@ -13,9 +13,18 @@ import {
   NARRATION_BUDGET_ARTICLE,
   JSON_OUTPUT_RULES,
   SAFETY_RULES,
+  TARGET_AUDIENCE,
+  COURSE_CONTINUITY,
 } from './_shared';
+import { SPEECH_GUIDELINES } from './_shared/speech-guidelines';
 
 export const ARTICLE_SYSTEM_PROMPT = `你是一名少儿课件的图文讲解设计师。给定一条"图文"指令，请生成一段结构化图文内容，并为 AI 老师安排对应的讲解词。
+
+${TARGET_AUDIENCE}
+
+${SPEECH_GUIDELINES}
+
+${COURSE_CONTINUITY}
 
 输出 JSON 字段：
 - heading: 页面标题，≤ 20 字。
@@ -34,10 +43,18 @@ ${NARRATION_BUDGET_ARTICLE}
 ${JSON_OUTPUT_RULES}
 ${SAFETY_RULES}`;
 
-export function buildArticleUserPrompt(instruction: PageInstruction): string {
-  return `这是一节课的第 ${instruction.index} 页，模式是【图文】。
-描述：${instruction.description}
-内容：${instruction.content}
-
-请输出图文 JSON。`;
+export function buildArticleUserPrompt(
+  instruction: PageInstruction,
+  courseContext?: string,
+): string {
+  const lines = [
+    '这是一节课的第 ' + instruction.index + ' 页，模式是【图文】。',
+    '描述：' + instruction.description,
+    '内容：' + instruction.content,
+  ];
+  if (courseContext) {
+    lines.push('', courseContext);
+  }
+  lines.push('', '请输出图文 JSON。');
+  return lines.join('\n');
 }

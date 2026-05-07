@@ -45,13 +45,14 @@ export interface GenerateVideoReviewSceneOptions {
   resolvedModel: ResolvedModel;
   teammateIds: string[];
   lessonId: string;
+  courseContext?: string;
 }
 
 export async function generateVideoReviewScene(
   opts: GenerateVideoReviewSceneOptions,
 ): Promise<VideoReviewScene> {
   const startedAt = Date.now();
-  const { instruction, resolvedModel, teammateIds, lessonId } = opts;
+  const { instruction, resolvedModel, teammateIds, lessonId, courseContext } = opts;
 
   let parsed: LLMOutput | null = null;
   try {
@@ -61,7 +62,7 @@ export async function generateVideoReviewScene(
         maxOutputTokens: 300,
         messages: [
           { role: 'system', content: VIDEO_REVIEW_SYSTEM_PROMPT },
-          { role: 'user', content: buildVideoReviewUserPrompt(instruction) },
+          { role: 'user', content: buildVideoReviewUserPrompt(instruction, courseContext) },
         ],
       },
       'engpk-video-review',

@@ -20,10 +20,16 @@ import {
   NARRATION_BUDGET_HINT,
   JSON_OUTPUT_RULES,
   SAFETY_RULES,
+  TARGET_AUDIENCE,
+  COURSE_CONTINUITY,
 } from './_shared';
 
 export const COVER_SYSTEM_PROMPT = `你是一名互动课件的封面设计师。给定一条用户的封面指令（描述 + 内容），
 你需要产出一份"封面信息"JSON。
+
+${TARGET_AUDIENCE}
+
+${COURSE_CONTINUITY}
 
 要求：
 - title：从描述/内容里提炼的醒目课件标题，≤ 16 字，避免完全照抄。
@@ -40,10 +46,18 @@ ${NARRATION_BUDGET_HINT}
 ${JSON_OUTPUT_RULES}
 ${SAFETY_RULES}`;
 
-export function buildCoverUserPrompt(instruction: PageInstruction): string {
-  return `这是一节课的第 ${instruction.index} 页，模式是【封面】。
-描述：${instruction.description}
-内容：${instruction.content}
-
-请按 system 中说明输出 JSON。`;
+export function buildCoverUserPrompt(
+  instruction: PageInstruction,
+  courseContext?: string,
+): string {
+  const lines = [
+    '这是一节课的第 ' + instruction.index + ' 页，模式是【封面】。',
+    '描述：' + instruction.description,
+    '内容：' + instruction.content,
+  ];
+  if (courseContext) {
+    lines.push('', courseContext);
+  }
+  lines.push('', '请按 system 中说明输出 JSON。');
+  return lines.join('\n');
 }

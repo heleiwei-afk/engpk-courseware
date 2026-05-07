@@ -18,6 +18,7 @@
 import { callLLM } from '@/lib/ai/llm';
 import { resolveModel } from '@/lib/server/resolve-model';
 import type { ResolvedModel } from '@/lib/server/resolve-model';
+import { getEngpkNormalizerModelString } from '@/lib/engpk/generation/model-config';
 
 const SYSTEM_PROMPT = `你是一个严格的格式归一化器。把用户输入的多行指令转写为标准格式：
 第{N}页：【{模式}】+{描述}+内容：{内容}
@@ -47,8 +48,7 @@ export async function normalizeInstructions(
 ): Promise<string> {
   if (!rawText.trim()) return '';
 
-  const modelString =
-    process.env.ENGPK_NORMALIZER_MODEL || process.env.DEFAULT_MODEL || undefined;
+  const modelString = getEngpkNormalizerModelString();
 
   const resolved =
     options?.model ??

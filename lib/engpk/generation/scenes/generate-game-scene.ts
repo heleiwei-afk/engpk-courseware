@@ -70,13 +70,14 @@ export interface GenerateGameSceneOptions {
   resolvedModel: ResolvedModel;
   teammateIds: string[];
   lessonId: string;
+  courseContext?: string;
 }
 
 export async function generateGameScene(
   opts: GenerateGameSceneOptions,
 ): Promise<GameScene> {
   const startedAt = Date.now();
-  const { instruction, resolvedModel, teammateIds, lessonId } = opts;
+  const { instruction, resolvedModel, teammateIds, lessonId, courseContext } = opts;
 
   const learningGoals = instruction.content
     .split(/[,，、\s]+/)
@@ -97,7 +98,7 @@ export async function generateGameScene(
     try {
       const messages: Array<{ role: 'system' | 'user'; content: string }> = [
         { role: 'system', content: GAME_SYSTEM_PROMPT },
-        { role: 'user', content: buildGameUserPrompt(instruction) },
+        { role: 'user', content: buildGameUserPrompt(instruction, courseContext) },
       ];
 
       // 第二次尝试时附带上次失败原因

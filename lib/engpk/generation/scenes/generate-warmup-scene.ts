@@ -96,13 +96,14 @@ export interface GenerateWarmupSceneOptions {
   resolvedModel: ResolvedModel;
   teammateIds: string[];
   lessonId: string;
+  courseContext?: string;
 }
 
 export async function generateWarmupScene(
   opts: GenerateWarmupSceneOptions,
 ): Promise<WarmupScene> {
   const startedAt = Date.now();
-  const { instruction, resolvedModel, teammateIds, lessonId } = opts;
+  const { instruction, resolvedModel, teammateIds, lessonId, courseContext } = opts;
 
   let parsed: LLMOutput | null = null;
   try {
@@ -112,7 +113,7 @@ export async function generateWarmupScene(
         maxOutputTokens: 2000,
         messages: [
           { role: 'system', content: WARMUP_SYSTEM_PROMPT },
-          { role: 'user', content: buildWarmupUserPrompt(instruction) },
+          { role: 'user', content: buildWarmupUserPrompt(instruction, courseContext) },
         ],
       },
       'engpk-warmup',

@@ -71,13 +71,14 @@ export interface GenerateEndingSceneOptions {
   lessonId: string;
   /** 本课得分率（用于选鼓励语 mood） */
   scoreRate?: number;
+  courseContext?: string;
 }
 
 export async function generateEndingScene(
   opts: GenerateEndingSceneOptions,
 ): Promise<EndingScene> {
   const startedAt = Date.now();
-  const { instruction, resolvedModel, teammateIds, lessonId } = opts;
+  const { instruction, resolvedModel, teammateIds, lessonId, courseContext } = opts;
 
   let parsed: LLMOutput | null = null;
   try {
@@ -87,7 +88,7 @@ export async function generateEndingScene(
         maxOutputTokens: 1800,
         messages: [
           { role: 'system', content: ENDING_GAME_SYSTEM_PROMPT },
-          { role: 'user', content: buildEndingUserPrompt(instruction) },
+          { role: 'user', content: buildEndingUserPrompt(instruction, courseContext) },
         ],
       },
       'engpk-ending',

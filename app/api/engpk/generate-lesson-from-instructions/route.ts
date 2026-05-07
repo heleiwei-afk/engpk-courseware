@@ -22,6 +22,7 @@ import {
   runMockGenerationPipeline,
 } from '@/lib/engpk/generation/pipeline';
 import { resolveModelFromRequest } from '@/lib/server/resolve-model';
+import { resolveEngpkGenerationModel } from '@/lib/engpk/generation/model-config';
 
 const log = createLogger('engpk:generate-lesson');
 
@@ -76,15 +77,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 解析模型（来自 header 或环境默认值）；失败不阻塞，封面会降级 mock
+  // 解析模型（来自 header 或 engpk 默认值 anthropic/claude-opus-4-7）
   let resolvedModel;
   try {
     resolvedModel = await resolveModelFromRequest(req, body);
-  } catch (err) {
-    log.warn(
-      'Model resolution failed; falling back to mock pipeline only',
-      err,
-    );
+  } catch {
+    // header 中没有指定模型或解析失败 → 使用 engpk 专用默认模型
+    try {
+      resolvedModel = await resolveEngpkGenerationModel();
+    } catch (err) {
+      log.warn(
+        'engpk default model resolution also failed; falling back to mock pipeline',
+        err,
+      );
+    }
   }
 
   const lessonId = makeLessonId();

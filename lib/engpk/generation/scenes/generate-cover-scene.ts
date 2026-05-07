@@ -96,13 +96,14 @@ export interface GenerateCoverSceneOptions {
   resolvedModel: ResolvedModel;
   teammateIds: string[];
   lessonId: string;
+  courseContext?: string;
 }
 
 export async function generateCoverScene(
   opts: GenerateCoverSceneOptions,
 ): Promise<CoverScene> {
   const startedAt = Date.now();
-  const { instruction, resolvedModel, teammateIds, lessonId } = opts;
+  const { instruction, resolvedModel, teammateIds, lessonId, courseContext } = opts;
 
   let parsed: CoverLLMOutput | null = null;
   try {
@@ -112,7 +113,7 @@ export async function generateCoverScene(
         maxOutputTokens: 600,
         messages: [
           { role: 'system', content: COVER_SYSTEM_PROMPT },
-          { role: 'user', content: buildCoverUserPrompt(instruction) },
+          { role: 'user', content: buildCoverUserPrompt(instruction, courseContext) },
         ],
       },
       'engpk-cover',

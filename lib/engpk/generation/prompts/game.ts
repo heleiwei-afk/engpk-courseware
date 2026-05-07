@@ -13,10 +13,19 @@ import {
   NARRATION_BUDGET_HINT,
   JSON_OUTPUT_RULES,
   SAFETY_RULES,
+  TARGET_AUDIENCE,
+  COURSE_CONTINUITY,
 } from './_shared';
+import { SPEECH_GUIDELINES_LITE } from './_shared/speech-guidelines';
 
 export const GAME_SYSTEM_PROMPT = `你是一名少儿互动课件的创意游戏设计师。给定学习目标词和描述，
 请设计并实现一个寓教于乐的 HTML 小游戏。
+
+${TARGET_AUDIENCE}
+
+${SPEECH_GUIDELINES_LITE}
+
+${COURSE_CONTINUITY}
 
 输出 JSON：
 {
@@ -51,14 +60,22 @@ ${NARRATION_BUDGET_HINT}
 ${JSON_OUTPUT_RULES}
 ${SAFETY_RULES}`;
 
-export function buildGameUserPrompt(instruction: PageInstruction): string {
+export function buildGameUserPrompt(
+  instruction: PageInstruction,
+  courseContext?: string,
+): string {
   const goals = instruction.content
     .split(/[,，、\s]+/)
     .map((s) => s.trim())
     .filter(Boolean);
-  return `这是一节课的第 ${instruction.index} 页，模式是【游戏】。
-描述：${instruction.description}
-学习目标词：${goals.join('、')}
-
-请设计一个包含以上所有学习目标词的小游戏，并输出完整 HTML。`;
+  const lines = [
+    '这是一节课的第 ' + instruction.index + ' 页，模式是【游戏】。',
+    '描述：' + instruction.description,
+    '学习目标词：' + goals.join('、'),
+  ];
+  if (courseContext) {
+    lines.push('', courseContext);
+  }
+  lines.push('', '请设计一个包含以上所有学习目标词的小游戏，并输出完整 HTML。');
+  return lines.join('\n');
 }

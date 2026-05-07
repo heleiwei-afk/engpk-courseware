@@ -52,13 +52,14 @@ export interface GenerateDiscussionSceneOptions {
   resolvedModel: ResolvedModel;
   teammateIds: string[];
   lessonId: string;
+  courseContext?: string;
 }
 
 export async function generateDiscussionScene(
   opts: GenerateDiscussionSceneOptions,
 ): Promise<DiscussionScene> {
   const startedAt = Date.now();
-  const { instruction, resolvedModel, teammateIds, lessonId } = opts;
+  const { instruction, resolvedModel, teammateIds, lessonId, courseContext } = opts;
 
   let parsed: LLMOutput | null = null;
   try {
@@ -68,7 +69,7 @@ export async function generateDiscussionScene(
         maxOutputTokens: 500,
         messages: [
           { role: 'system', content: DISCUSSION_SYSTEM_PROMPT },
-          { role: 'user', content: buildDiscussionUserPrompt(instruction) },
+          { role: 'user', content: buildDiscussionUserPrompt(instruction, courseContext) },
         ],
       },
       'engpk-discussion',

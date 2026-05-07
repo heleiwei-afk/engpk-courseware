@@ -41,6 +41,8 @@ import { generateGameScene } from './scenes/generate-game-scene';
 import { generateWarmupScene } from './scenes/generate-warmup-scene';
 import { generateVideoReviewScene } from './scenes/generate-video-review-scene';
 import { generateTeammates } from './generate-teammates';
+import { buildCourseContext, formatContextForPrompt } from './context-injector';
+import { formatAgentContextForPrompt } from './agent-context-builder';
 
 export interface RunPipelineInput {
   lessonId: string;
@@ -120,6 +122,12 @@ export async function* runMockGenerationPipeline(
 
   if (coverIdx >= 0) {
     const coverInstruction = sortedInstructions[coverIdx];
+    const coverCtxIndex = instructions.findIndex((i) => i.index === coverInstruction.index);
+    const coverCourseCtx = buildCourseContext(instructions, coverCtxIndex >= 0 ? coverCtxIndex : 0, title, teammates);
+    const coverAgentCtx = formatAgentContextForPrompt(teammates);
+    const coverContext = coverAgentCtx
+      ? formatContextForPrompt(coverCourseCtx) + '\n' + coverAgentCtx
+      : formatContextForPrompt(coverCourseCtx);
     try {
       const coverScene = resolvedModel
         ? await generateCoverScene({
@@ -127,6 +135,7 @@ export async function* runMockGenerationPipeline(
             resolvedModel,
             teammateIds,
             lessonId,
+            courseContext: coverContext,
           })
         : await mockGenerateScene(coverInstruction, styleToken, teammateIds);
       if (coverScene.type === 'cover') {
@@ -163,6 +172,12 @@ export async function* runMockGenerationPipeline(
 
   for (const instruction of sortedInstructions) {
     if (signal?.aborted) return;
+    const ctxIndex = instructions.findIndex((i) => i.index === instruction.index);
+    const courseCtx = buildCourseContext(instructions, ctxIndex >= 0 ? ctxIndex : 0, title, teammates);
+    const agentCtx = formatAgentContextForPrompt(teammates);
+    const courseContext = agentCtx
+      ? formatContextForPrompt(courseCtx) + '\n' + agentCtx
+      : formatContextForPrompt(courseCtx);
     try {
       const scene = await generateOneScene({
         instruction,
@@ -170,6 +185,7 @@ export async function* runMockGenerationPipeline(
         teammateIds,
         lessonId,
         resolvedModel,
+        courseContext,
       });
       upsertScene(lessonId, scene);
       yield {
@@ -220,6 +236,7 @@ interface GenerateOneOptions {
   teammateIds: string[];
   lessonId: string;
   resolvedModel?: ResolvedModel;
+  courseContext?: string;
 }
 
 async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
@@ -231,6 +248,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
+          courseContext: opts.courseContext,
         });
       case 'article':
         return generateArticleScene({
@@ -238,6 +256,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
+          courseContext: opts.courseContext,
         });
       case 'ending':
         return generateEndingScene({
@@ -245,6 +264,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
+          courseContext: opts.courseContext,
         });
       case 'discussion':
         return generateDiscussionScene({
@@ -252,6 +272,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
+          courseContext: opts.courseContext,
         });
       case 'game':
         return generateGameScene({
@@ -259,6 +280,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
+          courseContext: opts.courseContext,
         });
       case 'warmup':
         return generateWarmupScene({
@@ -266,6 +288,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
+          courseContext: opts.courseContext,
         });
       case 'video-review':
         return generateVideoReviewScene({
@@ -273,6 +296,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
+          courseContext: opts.courseContext,
         });
       default:
         return mockGenerateScene(

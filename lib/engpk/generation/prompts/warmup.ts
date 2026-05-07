@@ -13,10 +13,19 @@ import {
   NARRATION_BUDGET_HINT,
   JSON_OUTPUT_RULES,
   SAFETY_RULES,
+  TARGET_AUDIENCE,
+  COURSE_CONTINUITY,
 } from './_shared';
+import { SPEECH_GUIDELINES_LITE } from './_shared/speech-guidelines';
 
 export const WARMUP_SYSTEM_PROMPT = `你是一名少儿互动课件的节奏游戏设计师。给定暖场视频信息，
 请生成一份节拍谱（beatmap）和一句老师引导语。
+
+${TARGET_AUDIENCE}
+
+${SPEECH_GUIDELINES_LITE}
+
+${COURSE_CONTINUITY}
 
 输出 JSON：
 {
@@ -44,10 +53,18 @@ ${NARRATION_BUDGET_HINT}
 ${JSON_OUTPUT_RULES}
 ${SAFETY_RULES}`;
 
-export function buildWarmupUserPrompt(instruction: PageInstruction): string {
-  return `这是一节课的第 ${instruction.index} 页，模式是【暖场】。
-描述：${instruction.description}
-暖场视频资源：${instruction.content}
-
-请生成适合小朋友的节拍谱（easy 难度优先）。`;
+export function buildWarmupUserPrompt(
+  instruction: PageInstruction,
+  courseContext?: string,
+): string {
+  const lines = [
+    '这是一节课的第 ' + instruction.index + ' 页，模式是【暖场】。',
+    '描述：' + instruction.description,
+    '暖场视频资源：' + instruction.content,
+  ];
+  if (courseContext) {
+    lines.push('', courseContext);
+  }
+  lines.push('', '请生成适合小朋友的节拍谱（easy 难度优先）。');
+  return lines.join('\n');
 }
