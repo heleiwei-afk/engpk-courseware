@@ -36,6 +36,7 @@ import {
 import { generateCoverScene } from './scenes/generate-cover-scene';
 import { generateArticleScene } from './scenes/generate-article-scene';
 import { generateEndingScene } from './scenes/generate-ending-scene';
+import { generateDiscussionScene } from './scenes/generate-discussion-scene';
 import { generateTeammates } from './generate-teammates';
 
 export interface RunPipelineInput {
@@ -232,6 +233,13 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
         });
       case 'ending':
         return generateEndingScene({
+          instruction: opts.instruction,
+          resolvedModel: opts.resolvedModel,
+          teammateIds: opts.teammateIds,
+          lessonId: opts.lessonId,
+        });
+      case 'discussion':
+        return generateDiscussionScene({
           instruction: opts.instruction,
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
