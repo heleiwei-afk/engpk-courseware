@@ -1,0 +1,52 @@
+[
+  {
+    "name": "封面-标准",
+    "input": "第1页：【封面】+奇幻英语冒险+内容：Level 1 启程",
+    "expected": { "index": 1, "mode": "cover", "description": "奇幻英语冒险", "content": "Level 1 启程" }
+  },
+  {
+    "name": "游戏-标准",
+    "input": "第10页：【游戏】+单词闯关+内容：is, you, here, this",
+    "expected": { "index": 10, "mode": "game", "description": "单词闯关", "content": "is, you, here, this" }
+  },
+  {
+    "name": "视频赏析-URL",
+    "input": "第3页：【视频赏析】+角色口型模仿+内容：https://example.com/a.mp4",
+    "expected": { "index": 3, "mode": "video-review", "description": "角色口型模仿", "content": "https://example.com/a.mp4" }
+  },
+  {
+    "name": "讨论-空格容忍",
+    "input": "第 5 页 ： 【 讨论 】 + 主题 + 内容 ： XXX",
+    "expected": { "index": 5, "mode": "discussion", "description": "主题", "content": "XXX" }
+  },
+  {
+    "name": "暖场-标准",
+    "input": "第2页：【暖场】+节奏热身+内容：rhythm.mp4",
+    "expected": { "index": 2, "mode": "warmup", "description": "节奏热身", "content": "rhythm.mp4" }
+  },
+  {
+    "name": "图文-斜杠内容",
+    "input": "第15页：【图文】+语法拆解+内容：this 作主语 / 宾语 / 定语",
+    "expected": { "index": 15, "mode": "article", "description": "语法拆解", "content": "this 作主语 / 宾语 / 定语" }
+  },
+  {
+    "name": "结尾-标准",
+    "input": "第16页：【结尾】+闯关庆功+内容：本课共掌握 4 个词",
+    "expected": { "index": 16, "mode": "ending", "description": "闯关庆功", "content": "本课共掌握 4 个词" }
+  },
+  {
+    "name": "游戏-半角逗号",
+    "input": "第8页：【游戏】+combo 训练+内容：a, b, c",
+    "expected": { "index": 8, "mode": "game", "description": "combo 训练", "content": "a, b, c" }
+  },
+  {
+    "name": "图文-英文内容",
+    "input": "第4页：【图文】+ Hello world! + 内容：first program",
+    "expected": { "index": 4, "mode": "article", "description": "Hello world!", "content": "first program" }
+  },
+  {
+    "name": "封面-半角方括号",
+    "input": "第1页：[封面]+测试+内容：x",
+    "expected": { "index": 1, "mode": "cover", "description": "测试", "content": "x" }
+  }
+]

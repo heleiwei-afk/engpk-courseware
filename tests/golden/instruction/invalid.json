@@ -1,0 +1,32 @@
+[
+  {
+    "name": "页码 0",
+    "input": "第0页：【封面】+x+内容：y",
+    "expectedErrorCode": "INVALID_INDEX"
+  },
+  {
+    "name": "未知模式",
+    "input": "第1页：【随便】+x+内容：y",
+    "expectedErrorCode": "UNKNOWN_MODE"
+  },
+  {
+    "name": "空字符串",
+    "input": "",
+    "expectedErrorCode": "EMPTY_INPUT"
+  },
+  {
+    "name": "完全无结构",
+    "input": "这是一段完全不规范的文字",
+    "expectedErrorCode": "UNPARSEABLE"
+  },
+  {
+    "name": "缺少内容段",
+    "input": "第10页：【游戏】+单词闯关",
+    "expectedErrorCode": "UNPARSEABLE"
+  },
+  {
+    "name": "缺少方括号",
+    "input": "第10页：封面+主题+内容：内容",
+    "expectedErrorCode": "UNPARSEABLE"
+  }
+]
