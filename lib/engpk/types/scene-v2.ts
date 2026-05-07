@@ -13,6 +13,10 @@
 
 import type { Action } from '@/lib/types/action';
 import type { PageInstruction } from '@/lib/engpk/instruction/types';
+import type { EngpkAction } from './action-ext';
+
+/** Scene 内可以承载的动作：MAIC 原 Action 联合 + engpk 三个新动作 */
+export type SceneAction = Action | EngpkAction;
 
 // ==================== 通用类型 ====================
 
@@ -191,7 +195,7 @@ export interface SceneBase {
   /** 参与的 AI 队友 id 列表（用于 LangGraph 限定 agent） */
   agentIds: string[];
   /** 老师/队友的引导语等动作（含 engpk 扩展 action） */
-  actions: Action[];
+  actions: SceneAction[];
   /** 生成状态 */
   status: SceneStatus;
   /** 失败时的错误信息 */
