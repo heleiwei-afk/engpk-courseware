@@ -1,0 +1,1 @@
+export { CoverSceneView } from './CoverSceneView';

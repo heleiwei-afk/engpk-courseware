@@ -1,19 +1,19 @@
 /**
- * engpk · 生成管线（PR-08 mock 版本）
+ * engpk · 生成管线
  *
- * 输入：原始指令文本 + 解析批次结果
+ * 输入：原始指令文本 + 解析批次结果 + ResolvedModel（可选）
  * 输出：异步 generator，逐步 yield SSE 事件
  *
  * 流程（决策 #13：边播边生成）：
  *   1. parsed       立刻发（由 route handler 触发）
- *   2. teammates    mock 生成 3 位队友
+ *   2. teammates    mock 生成 3 位队友（PR-11 接真生成器）
  *   3. style        先生成封面 → 封面内部产出 styleToken → 发 style-ready
  *      若指令里没有封面页，就生成默认 styleToken 后直接发
  *   4. scene-ready  并发生成其它场景；完成一页推一页
  *                   失败的页发 scene-error，不阻塞其它
  *   5. done         全部完成后发汇总
  *
- * 注意：这是 PR-08 的 mock 实现。PR-10 起会把各 type 分支替换为真 LLM 调用。
+ * PR-10：封面类已切到真 LLM 生成（generateCoverScene）；其它类型仍走 mock。
  */
 
 import type {
@@ -22,6 +22,7 @@ import type {
 } from '@/lib/engpk/types/generation-events';
 import type { Lesson, Scene, StyleToken } from '@/lib/engpk/types/scene-v2';
 import type { PageInstruction } from '@/lib/engpk/instruction/types';
+import type { ResolvedModel } from '@/lib/server/resolve-model';
 import {
   mockGenerateScene,
   mockStyleToken,
@@ -33,6 +34,7 @@ import {
   setLessonStatus,
   upsertScene,
 } from './lesson-registry';
+import { generateCoverScene } from './scenes/generate-cover-scene';
 
 export interface RunPipelineInput {
   lessonId: string;
@@ -40,12 +42,16 @@ export interface RunPipelineInput {
   parseResult: GenerationParsedPayload;
   /** 外部中断信号 */
   signal?: AbortSignal;
+  /**
+   * 已解析的模型；为空表示路由未传入（当前的 mock 链路也支持，封面会降级为 mock）
+   */
+  resolvedModel?: ResolvedModel;
 }
 
 export async function* runMockGenerationPipeline(
   input: RunPipelineInput,
 ): AsyncGenerator<GenerationEvent, void, void> {
-  const { lessonId, rawInstructions, parseResult, signal } = input;
+  const { lessonId, rawInstructions, parseResult, signal, resolvedModel } = input;
   const instructions = parseResult.batch.validInstructions;
 
   // 没有合法指令 → 整体失败
@@ -98,11 +104,14 @@ export async function* runMockGenerationPipeline(
   if (coverIdx >= 0) {
     const coverInstruction = sortedInstructions[coverIdx];
     try {
-      const coverScene = await mockGenerateScene(
-        coverInstruction,
-        styleToken,
-        teammateIds,
-      );
+      const coverScene = resolvedModel
+        ? await generateCoverScene({
+            instruction: coverInstruction,
+            resolvedModel,
+            teammateIds,
+            lessonId,
+          })
+        : await mockGenerateScene(coverInstruction, styleToken, teammateIds);
       if (coverScene.type === 'cover') {
         styleToken = coverScene.payload.styleToken;
       }
@@ -138,18 +147,20 @@ export async function* runMockGenerationPipeline(
     yield { type: 'style-ready', data: { lessonId, styleToken } };
   }
 
-  // ========== 3. 并发生成剩余场景 ==========
-  //
-  // 为了让 SSE 事件顺序稳定可观察，这里用顺序生成。
-  // 真生成阶段（PR-10+）可改为有界并发（Promise.race + pool）。
-
+  // ========== 3. 顺序生成剩余场景（其它类型仍走 mock）==========
   let succeeded = coverIdx >= 0 ? 1 : 0;
   let failed = 0;
 
   for (const instruction of sortedInstructions) {
     if (signal?.aborted) return;
     try {
-      const scene = await mockGenerateScene(instruction, styleToken, teammateIds);
+      const scene = await generateOneScene({
+        instruction,
+        styleToken,
+        teammateIds,
+        lessonId,
+        resolvedModel,
+      });
       upsertScene(lessonId, scene);
       yield {
         type: 'scene-ready',
@@ -195,6 +206,28 @@ export async function* runMockGenerationPipeline(
       },
     },
   };
+}
+
+interface GenerateOneOptions {
+  instruction: PageInstruction;
+  styleToken: StyleToken;
+  teammateIds: string[];
+  lessonId: string;
+  resolvedModel?: ResolvedModel;
+}
+
+async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
+  // 每个 mode 的真实生成器在后续 PR 接入；
+  // 这里 cover 已切真 LLM，其它仍走 mock。
+  if (opts.instruction.mode === 'cover' && opts.resolvedModel) {
+    return generateCoverScene({
+      instruction: opts.instruction,
+      resolvedModel: opts.resolvedModel,
+      teammateIds: opts.teammateIds,
+      lessonId: opts.lessonId,
+    });
+  }
+  return mockGenerateScene(opts.instruction, opts.styleToken, opts.teammateIds);
 }
 
 /** 便于测试：生成一个 lessonId。 */

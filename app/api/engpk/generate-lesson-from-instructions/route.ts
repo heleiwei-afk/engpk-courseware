@@ -21,6 +21,7 @@ import {
   makeLessonId,
   runMockGenerationPipeline,
 } from '@/lib/engpk/generation/pipeline';
+import { resolveModelFromRequest } from '@/lib/server/resolve-model';
 
 const log = createLogger('engpk:generate-lesson');
 
@@ -32,6 +33,8 @@ interface RequestBody {
   rawInstructions?: string;
   /** 默认 true；调用方可显式禁用 LLM 兜底（如离线测试） */
   enableLLMFallback?: boolean;
+  /** 显式指定模型（与 OpenMAIC 其它 API 一致，body.model 也可通过 header 覆盖） */
+  model?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -70,6 +73,17 @@ export async function POST(req: NextRequest) {
       400,
       'NO_VALID_INSTRUCTIONS',
       '没有解析到任何合法指令',
+    );
+  }
+
+  // 解析模型（来自 header 或环境默认值）；失败不阻塞，封面会降级 mock
+  let resolvedModel;
+  try {
+    resolvedModel = await resolveModelFromRequest(req, body);
+  } catch (err) {
+    log.warn(
+      'Model resolution failed; falling back to mock pipeline only',
+      err,
     );
   }
 
@@ -118,6 +132,7 @@ export async function POST(req: NextRequest) {
           usedFallback,
         },
         signal,
+        resolvedModel,
       })) {
         if (signal.aborted) break;
         await writeEvent(event);
