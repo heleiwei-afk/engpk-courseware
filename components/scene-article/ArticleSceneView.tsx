@@ -13,6 +13,7 @@
 
 import { useState } from 'react';
 import type { ArticleScene } from '@/lib/engpk/types/scene-v2';
+import { SpeakButton } from '@/components/engpk-editor/SpeakButton';
 
 interface ArticleSceneViewProps {
   scene: ArticleScene;
@@ -122,22 +123,24 @@ export function ArticleSceneView({ scene, onContinue }: ArticleSceneViewProps) {
             </p>
           ) : (
             speeches.map((s, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setActiveSpeechIdx(i)}
-                className={
-                  'w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ' +
-                  (i === activeSpeechIdx
-                    ? 'bg-primary/15 ring-1 ring-primary'
-                    : 'bg-card hover:bg-card/80')
-                }
-              >
-                <span className="mr-1 text-[10px] font-mono text-muted-foreground">
-                  #{i + 1}
-                </span>
-                {s}
-              </button>
+              <div key={i} className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveSpeechIdx(i)}
+                  className={
+                    'w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ' +
+                    (i === activeSpeechIdx
+                      ? 'bg-primary/15 ring-1 ring-primary'
+                      : 'bg-card hover:bg-card/80')
+                  }
+                >
+                  <span className="mr-1 text-[10px] font-mono text-muted-foreground">
+                    #{i + 1}
+                  </span>
+                  {s}
+                </button>
+                <SpeakButton text={s} autoPlay={i === 0} className="ml-3" />
+              </div>
             ))
           )}
         </div>
