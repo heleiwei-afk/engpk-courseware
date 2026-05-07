@@ -99,7 +99,9 @@ export async function POST(req: NextRequest) {
 
   const writeEvent = async (event: GenerationEvent) => {
     if (signal.aborted) return;
-    await writer.write(encoder.encode(formatSSE(event)));
+    await writer.write(encoder.encode(formatSSE(event))).catch(() => {
+      // 客户端断开，写失败后续忽略；pipeline 继续在后台跑完
+    });
   };
 
   // 心跳
@@ -108,6 +110,10 @@ export async function POST(req: NextRequest) {
       .write(encoder.encode(`:heartbeat\n\n`))
       .catch(() => clearInterval(heartbeatTimer));
   }, HEARTBEAT_INTERVAL_MS);
+
+  // 独立的 pipeline AbortController。客户端断开不应中止后台生成
+  // —— 客户端导航到课堂页后要靠轮询继续拿数据，pipeline 必须跑完。
+  const pipelineController = new AbortController();
 
   // 后台异步推流
   (async () => {
@@ -122,7 +128,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // 跑 pipeline
+      // 跑 pipeline（用独立 signal，不受客户端断开影响）
       for await (const event of runMockGenerationPipeline({
         lessonId,
         rawInstructions,
@@ -131,11 +137,13 @@ export async function POST(req: NextRequest) {
           batch: parseBatch,
           usedFallback,
         },
-        signal,
+        signal: pipelineController.signal,
         resolvedModel,
       })) {
-        if (signal.aborted) break;
-        await writeEvent(event);
+        // 只跳过往客户端写，不中止 pipeline
+        if (!signal.aborted) {
+          await writeEvent(event);
+        }
       }
     } catch (err) {
       log.error('Pipeline error', err);

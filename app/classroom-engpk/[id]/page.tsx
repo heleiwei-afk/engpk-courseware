@@ -52,14 +52,20 @@ export default function EngpkClassroomPage() {
     try {
       const res = await fetch(`/api/engpk/lessons/${lessonId}`);
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error?.message ?? `HTTP ${res.status}`);
-        setLoading(false);
+        // 404 在 SSE 保存 lesson 之前可能出现，让轮询继续重试，不展示错误。
+        if (res.status !== 404) {
+          const body = await res.json().catch(() => null);
+          setError(body?.error?.message ?? `HTTP ${res.status}`);
+          setLoading(false);
+        }
         return;
       }
       const { lesson } = (await res.json()) as { lesson: Lesson };
 
-      if (!hydratedRef.current) {
+      const needsTeammateRefresh =
+        hydratedRef.current && lesson.teammates.length > 0;
+
+      if (!hydratedRef.current || needsTeammateRefresh) {
         hydrate({
           lessonId: lesson.id,
           user: {
@@ -76,6 +82,7 @@ export default function EngpkClassroomPage() {
         for (const s of lesson.scenes) upsertScene(s);
       }
 
+      setError(null);
       setLessonStatus(lesson.status);
       setLoading(false);
     } catch (err) {

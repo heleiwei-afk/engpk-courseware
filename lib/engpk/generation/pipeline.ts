@@ -76,8 +76,22 @@ export async function* runMockGenerationPipeline(
   const title =
     firstCover?.content?.trim() || firstCover?.description?.trim() || '新课堂';
 
-  // ========== 1. 生成队友（真 LLM 或 mock） ==========
+  // ========== 0. 立刻保存 lesson 占位（避免课堂页轮询拿 404） ==========
+  // 即使后续 LLM 调用慢，客户端也能立刻在 /api/engpk/lessons/[id] 拿到记录。
   if (signal?.aborted) return;
+  const lesson: Lesson = {
+    id: lessonId,
+    title,
+    rawInstructions,
+    instructions,
+    teammates: [], // 占位，下面生成完会更新
+    scenes: [],
+    createdAt: new Date(),
+    status: 'generating',
+  };
+  saveLesson(lesson);
+
+  // ========== 1. 生成队友（真 LLM 或 mock） ==========
   let teammates: AITeammate[];
   try {
     teammates = resolvedModel
@@ -92,17 +106,8 @@ export async function* runMockGenerationPipeline(
   }
   const teammateIds = teammates.map((t) => t.id);
 
-  const lesson: Lesson = {
-    id: lessonId,
-    title,
-    rawInstructions,
-    instructions,
-    teammates,
-    scenes: [],
-    createdAt: new Date(),
-    status: 'generating',
-  };
-  saveLesson(lesson);
+  // 更新 lesson 的 teammates（同一引用，registry 不需要重写）
+  lesson.teammates = teammates;
 
   yield { type: 'teammates-ready', data: { lessonId, teammates } };
 
