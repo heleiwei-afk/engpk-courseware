@@ -39,6 +39,7 @@ import { generateEndingScene } from './scenes/generate-ending-scene';
 import { generateDiscussionScene } from './scenes/generate-discussion-scene';
 import { generateGameScene } from './scenes/generate-game-scene';
 import { generateWarmupScene } from './scenes/generate-warmup-scene';
+import { generateVideoReviewScene } from './scenes/generate-video-review-scene';
 import { generateTeammates } from './generate-teammates';
 
 export interface RunPipelineInput {
@@ -256,6 +257,13 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
         });
       case 'warmup':
         return generateWarmupScene({
+          instruction: opts.instruction,
+          resolvedModel: opts.resolvedModel,
+          teammateIds: opts.teammateIds,
+          lessonId: opts.lessonId,
+        });
+      case 'video-review':
+        return generateVideoReviewScene({
           instruction: opts.instruction,
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,

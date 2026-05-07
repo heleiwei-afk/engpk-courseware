@@ -24,6 +24,7 @@ import { EndingSceneView } from '@/components/scene-ending';
 import { DiscussionSceneView } from '@/components/scene-discussion';
 import { GameSceneView } from '@/components/scene-game';
 import { WarmupSceneView } from '@/components/scene-warmup';
+import { VideoReviewSceneView } from '@/components/scene-video-review';
 import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
 import type { Lesson, Scene } from '@/lib/engpk/types/scene-v2';
 import { SCENE_MODE_LABELS } from '@/lib/engpk/instruction/types';
@@ -155,6 +156,8 @@ function SceneRouter({
       return <GameSceneView scene={scene} onContinue={onContinue} />;
     case 'warmup':
       return <WarmupSceneView scene={scene} onContinue={onContinue} />;
+    case 'video-review':
+      return <VideoReviewSceneView scene={scene} onContinue={onContinue} />;
     default:
       return <ScenePlaceholder scene={scene} onContinue={onContinue} />;
   }
