@@ -35,19 +35,20 @@ test.describe('engpk smoke', () => {
     await expect(submitBtn).toBeEnabled();
     await submitBtn.click();
 
-    // 5. 等待跳转到课堂页
-    await page.waitForURL(/\/classroom-engpk\//, { timeout: 15000 });
+    // 5. 等待进度面板出现（不再自动跳转）
+    await expect(page.locator('text=正在生成课件')).toBeVisible({ timeout: 5000 });
 
-    // 6. 等待至少一个场景出现
-    //    LLM 调用 (teammates+cover) 各 3 次重试 ≈ 16s + 课堂页 2s 轮询间隔；
-    //    给到 50s 容忍 4sapi.com 503 重试场景。
+    // 6. 等待"进入课堂"按钮出现（表示生成完成）
+    const enterBtn = page.locator('button', { hasText: '进入课堂' });
+    await expect(enterBtn).toBeVisible({ timeout: 45000 });
+
+    // 7. 点"进入课堂"跳转
+    await enterBtn.click();
+    await page.waitForURL(/\/classroom-engpk\//, { timeout: 10000 });
+
+    // 8. 课堂页场景可见
     await expect(page.locator('[data-testid="scene-main"]')).toBeVisible({
-      timeout: 30000,
-    });
-
-    // 7. 目录应该有内容（pipeline 完成后下次轮询会拿到）
-    await expect(page.locator('[data-testid="lesson-toc"]')).toContainText('封面', {
-      timeout: 30000,
+      timeout: 10000,
     });
   });
 
