@@ -16,6 +16,9 @@ import { EngpkPlaybackEngine, type PlaybackStatus } from '@/lib/engpk/playback/e
 import type { Scene } from '@/lib/engpk/types/scene-v2';
 import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
 import { useServerTTS } from './use-server-tts';
+import { executeMaicAction, disposeActionEngine } from '@/lib/engpk/whiteboard/action-bridge';
+import { clearWhiteboard } from '@/lib/engpk/whiteboard/stage-store';
+import type { Action } from '@/lib/types/action';
 import type { RuntimeAction } from '@/lib/engpk/action/runtime';
 
 export interface PlaybackRuntimeState {
@@ -49,12 +52,24 @@ export function usePlaybackRuntime() {
     async (action: RuntimeAction) => {
       if (action.type === 'speech' && 'text' in action) {
         const text = (action as { text: string }).text;
-        // Speak using browser TTS with current speed
         await speak(text);
+        return;
       }
-      // Other action types (wb_*, spotlight, laser) — no-op for now
-      // P2 will add spotlight handling
-      // P3 will add whiteboard handling
+
+      // Bridge wb_* and spotlight/laser actions to MAIC ActionEngine
+      const actionType = action.type as string;
+      if (
+        actionType.startsWith('wb_') ||
+        actionType === 'spotlight' ||
+        actionType === 'laser'
+      ) {
+        try {
+          await executeMaicAction(action as unknown as Action);
+        } catch {
+          // Silently ignore MAIC action errors
+        }
+        return;
+      }
     },
     [speak],
   );
@@ -69,12 +84,14 @@ export function usePlaybackRuntime() {
       onSceneChange: (index) => {
         setState((s) => ({ ...s, currentSceneIndex: index }));
         selectScene(index);
+        clearWhiteboard(); // Clear whiteboard on scene change
       },
     });
     engineRef.current = engine;
 
     return () => {
       engine.dispose();
+      disposeActionEngine();
       stopTTS();
       engineRef.current = null;
     };

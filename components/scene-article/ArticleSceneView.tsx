@@ -15,6 +15,7 @@ import { useState } from 'react';
 import type { ArticleScene } from '@/lib/engpk/types/scene-v2';
 import { SpeakButton } from '@/components/engpk-editor/SpeakButton';
 import { SpotlightBlock } from './SpotlightBlock';
+import { WhiteboardPanel } from './whiteboard/WhiteboardPanel';
 
 interface ArticleSceneViewProps {
   scene: ArticleScene;
@@ -94,8 +95,13 @@ export function ArticleSceneView({ scene, onContinue }: ArticleSceneViewProps) {
         </div>
       </div>
 
-      {/* 右侧：老师讲解 */}
-      <div className="flex w-80 flex-col rounded-xl border border-border bg-muted/30 p-4">
+      {/* 右侧：白板 + 老师讲解 */}
+      <div className="flex w-80 flex-col gap-3 overflow-hidden">
+        {/* 白板面板（有内容时显示） */}
+        <WhiteboardPanel />
+
+        {/* 讲解列表 */}
+        <div className="flex flex-1 flex-col rounded-xl border border-border bg-muted/30 p-4">
         <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
           <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] text-primary-foreground">
             老师
@@ -129,6 +135,7 @@ export function ArticleSceneView({ scene, onContinue }: ArticleSceneViewProps) {
               </div>
             ))
           )}
+        </div>
         </div>
         <button
           type="button"
