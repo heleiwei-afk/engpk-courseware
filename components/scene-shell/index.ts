@@ -12,3 +12,6 @@ export { BulletChat } from './BulletChat';
 export { DiscussionInput } from './DiscussionInput';
 export { LessonToc } from './LessonToc';
 export { ProgressBar } from './ProgressBar';
+export { PlaybackControls } from './PlaybackControls';
+export { AgentSpeechBubble } from './AgentSpeechBubble';
+export { ThinkingDots } from './ThinkingDots';

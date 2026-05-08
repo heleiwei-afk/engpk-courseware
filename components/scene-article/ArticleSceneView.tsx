@@ -14,6 +14,7 @@
 import { useState } from 'react';
 import type { ArticleScene } from '@/lib/engpk/types/scene-v2';
 import { SpeakButton } from '@/components/engpk-editor/SpeakButton';
+import { SpotlightBlock } from './SpotlightBlock';
 
 interface ArticleSceneViewProps {
   scene: ArticleScene;
@@ -31,6 +32,44 @@ export function ArticleSceneView({ scene, onContinue }: ArticleSceneViewProps) {
   const [activeSpeechIdx, setActiveSpeechIdx] = useState<number>(0);
   const activeBlock = focusBlockIndexes[activeSpeechIdx] ?? -1;
 
+  function renderBlock(block: typeof blocks[number]) {
+    switch (block.type) {
+      case 'paragraph':
+        return <p className="rounded-lg bg-card p-4 leading-relaxed">{block.text}</p>;
+      case 'bullet-list':
+        return (
+          <ul className="list-inside list-disc rounded-lg bg-card p-4 space-y-1.5">
+            {block.items.map((it, idx) => (
+              <li key={idx} className="leading-relaxed">{it}</li>
+            ))}
+          </ul>
+        );
+      case 'highlight':
+        return (
+          <div className="border-l-4 border-primary bg-primary/10 px-4 py-3 font-medium rounded-lg">
+            {block.text}
+          </div>
+        );
+      case 'image':
+        return (
+          <figure className="overflow-hidden rounded-lg border bg-card">
+            {block.url ? (
+              <img src={block.url} alt={block.caption ?? block.prompt} className="w-full object-cover" />
+            ) : (
+              <div className="flex aspect-video items-center justify-center bg-muted/50 px-4 text-center text-xs text-muted-foreground">
+                图片生成中 · {block.prompt.slice(0, 80)}
+              </div>
+            )}
+            {block.caption ? (
+              <figcaption className="p-2 text-center text-xs text-muted-foreground">{block.caption}</figcaption>
+            ) : null}
+          </figure>
+        );
+      default:
+        return null;
+    }
+  }
+
   return (
     <div
       className="flex h-full w-full gap-6 overflow-hidden p-6"
@@ -41,69 +80,16 @@ export function ArticleSceneView({ scene, onContinue }: ArticleSceneViewProps) {
         <h2 className="mb-6 text-2xl font-bold">{heading}</h2>
         <div className="space-y-4">
           {blocks.map((block, i) => {
-            const isActive = activeBlock === i;
-            const baseCls =
-              'rounded-lg transition-all duration-200 ' +
-              (isActive ? 'ring-2 ring-primary ring-offset-2' : '');
-            switch (block.type) {
-              case 'paragraph':
-                return (
-                  <p
-                    key={i}
-                    className={`${baseCls} bg-card p-4 leading-relaxed`}
-                  >
-                    {block.text}
-                  </p>
-                );
-              case 'bullet-list':
-                return (
-                  <ul
-                    key={i}
-                    className={`${baseCls} list-inside list-disc bg-card p-4 space-y-1.5`}
-                  >
-                    {block.items.map((it, idx) => (
-                      <li key={idx} className="leading-relaxed">
-                        {it}
-                      </li>
-                    ))}
-                  </ul>
-                );
-              case 'highlight':
-                return (
-                  <div
-                    key={i}
-                    className={`${baseCls} border-l-4 border-primary bg-primary/10 px-4 py-3 font-medium`}
-                  >
-                    {block.text}
-                  </div>
-                );
-              case 'image':
-                return (
-                  <figure
-                    key={i}
-                    className={`${baseCls} overflow-hidden rounded-lg border bg-card`}
-                  >
-                    {block.url ? (
-                      <img
-                        src={block.url}
-                        alt={block.caption ?? block.prompt}
-                        className="w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex aspect-video items-center justify-center bg-muted/50 px-4 text-center text-xs text-muted-foreground">
-                        图片生成中 · {block.prompt.slice(0, 80)}
-                      </div>
-                    )}
-                    {block.caption ? (
-                      <figcaption className="p-2 text-center text-xs text-muted-foreground">
-                        {block.caption}
-                      </figcaption>
-                    ) : null}
-                  </figure>
-                );
-              default:
-                return null;
-            }
+            return (
+              <SpotlightBlock
+                key={i}
+                activeIndex={activeBlock}
+                blockIndex={i}
+                totalBlocks={blocks.length}
+              >
+                {renderBlock(block)}
+              </SpotlightBlock>
+            );
           })}
         </div>
       </div>
