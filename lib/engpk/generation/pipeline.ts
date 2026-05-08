@@ -43,6 +43,9 @@ import { generateVideoReviewScene } from './scenes/generate-video-review-scene';
 import { generateTeammates } from './generate-teammates';
 import { buildCourseContext, formatContextForPrompt } from './context-injector';
 import { formatAgentContextForPrompt } from './agent-context-builder';
+import { buildCourseOutline } from './outline-builder';
+import { formatSceneOutlineForPrompt } from './outline-formatter';
+import type { CourseOutline, SceneOutline } from '../types/course-outline';
 
 export interface RunPipelineInput {
   lessonId: string;
@@ -113,6 +116,21 @@ export async function* runMockGenerationPipeline(
 
   yield { type: 'teammates-ready', data: { lessonId, teammates } };
 
+  // ========== 1.5 生成课程大纲（扩写核心！） ==========
+  if (signal?.aborted) return;
+  let courseOutline: CourseOutline | null = null;
+  if (resolvedModel) {
+    try {
+      courseOutline = await buildCourseOutline({
+        instructions,
+        resolvedModel,
+        lessonId,
+      });
+    } catch {
+      // outline 失败不阻塞，后续 scene generator 会用 fallback
+    }
+  }
+
   // ========== 2. 先生成封面（或默认 style） ==========
   if (signal?.aborted) return;
   let styleToken: StyleToken = mockStyleToken();
@@ -179,6 +197,8 @@ export async function* runMockGenerationPipeline(
       ? formatContextForPrompt(courseCtx) + '\n' + agentCtx
       : formatContextForPrompt(courseCtx);
     try {
+      // 从大纲中找到当前页的 outline
+      const sceneOutline = courseOutline?.scenes.find((s) => s.index === instruction.index) ?? undefined;
       const scene = await generateOneScene({
         instruction,
         styleToken,
@@ -186,6 +206,7 @@ export async function* runMockGenerationPipeline(
         lessonId,
         resolvedModel,
         courseContext,
+        sceneOutline,
       });
       upsertScene(lessonId, scene);
       yield {
@@ -237,9 +258,19 @@ interface GenerateOneOptions {
   lessonId: string;
   resolvedModel?: ResolvedModel;
   courseContext?: string;
+  sceneOutline?: SceneOutline;
 }
 
 async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
+  // Build enriched context: courseContext + sceneOutline
+  let enrichedContext = opts.courseContext || '';
+  if (opts.sceneOutline) {
+    const outlineBlock = formatSceneOutlineForPrompt(opts.sceneOutline);
+    enrichedContext = enrichedContext
+      ? enrichedContext + '\n\n' + outlineBlock
+      : outlineBlock;
+  }
+
   if (opts.resolvedModel) {
     switch (opts.instruction.mode) {
       case 'cover':
@@ -248,7 +279,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
-          courseContext: opts.courseContext,
+          courseContext: enrichedContext,
         });
       case 'article':
         return generateArticleScene({
@@ -256,7 +287,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
-          courseContext: opts.courseContext,
+          courseContext: enrichedContext,
         });
       case 'ending':
         return generateEndingScene({
@@ -264,7 +295,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
-          courseContext: opts.courseContext,
+          courseContext: enrichedContext,
         });
       case 'discussion':
         return generateDiscussionScene({
@@ -272,7 +303,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
-          courseContext: opts.courseContext,
+          courseContext: enrichedContext,
         });
       case 'game':
         return generateGameScene({
@@ -280,7 +311,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
-          courseContext: opts.courseContext,
+          courseContext: enrichedContext,
         });
       case 'warmup':
         return generateWarmupScene({
@@ -288,7 +319,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
-          courseContext: opts.courseContext,
+          courseContext: enrichedContext,
         });
       case 'video-review':
         return generateVideoReviewScene({
@@ -296,7 +327,7 @@ async function generateOneScene(opts: GenerateOneOptions): Promise<Scene> {
           resolvedModel: opts.resolvedModel,
           teammateIds: opts.teammateIds,
           lessonId: opts.lessonId,
-          courseContext: opts.courseContext,
+          courseContext: enrichedContext,
         });
       default:
         return mockGenerateScene(
