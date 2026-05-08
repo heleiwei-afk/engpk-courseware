@@ -131,6 +131,21 @@ export async function* runMockGenerationPipeline(
     }
   }
 
+  // 通知前端大纲已就绪
+  if (courseOutline) {
+    yield {
+      type: 'outline-ready',
+      data: {
+        lessonId,
+        lessonTitle: courseOutline.lessonTitle,
+        learningObjectives: courseOutline.learningObjectives,
+        scenesCount: courseOutline.scenes.length,
+      },
+    };
+    // 用大纲标题更新 lesson title
+    lesson.title = courseOutline.lessonTitle;
+  }
+
   // ========== 2. 先生成封面（或默认 style） ==========
   if (signal?.aborted) return;
   let styleToken: StyleToken = mockStyleToken();

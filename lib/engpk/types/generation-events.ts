@@ -26,6 +26,7 @@ import type {
 export type GenerationEvent =
   | { type: 'parsed'; data: GenerationParsedPayload }
   | { type: 'teammates-ready'; data: GenerationTeammatesPayload }
+  | { type: 'outline-ready'; data: GenerationOutlinePayload }
   | { type: 'style-ready'; data: GenerationStylePayload }
   | { type: 'scene-ready'; data: GenerationScenePayload }
   | { type: 'scene-error'; data: GenerationSceneErrorPayload }
@@ -44,6 +45,16 @@ export interface GenerationParsedPayload {
 export interface GenerationTeammatesPayload {
   lessonId: string;
   teammates: AITeammate[];
+}
+
+export interface GenerationOutlinePayload {
+  lessonId: string;
+  /** LLM 提炼的课程标题 */
+  lessonTitle: string;
+  /** 整课学习目标 */
+  learningObjectives: string[];
+  /** 大纲覆盖的页数 */
+  scenesCount: number;
 }
 
 export interface GenerationStylePayload {

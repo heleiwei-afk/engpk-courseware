@@ -25,6 +25,7 @@ import type {
   GenerationTeammatesPayload,
   GenerationParsedPayload,
   GenerationErrorPayload,
+  GenerationOutlinePayload,
 } from '@/lib/engpk/types/generation-events';
 
 export type GenerationStatus =
@@ -40,6 +41,7 @@ export interface GenerationState {
   lessonId?: string;
   parsed?: GenerationParsedPayload;
   teammates?: GenerationTeammatesPayload;
+  outline?: GenerationOutlinePayload;
   style?: GenerationStylePayload;
   scenes: Record<number, GenerationScenePayload>;
   sceneErrors: Record<number, GenerationSceneErrorPayload>;
@@ -217,6 +219,9 @@ function applyEvent(
         break;
       case 'teammates-ready':
         next.teammates = event.data;
+        break;
+      case 'outline-ready':
+        next.outline = event.data;
         break;
       case 'style-ready':
         next.style = event.data;

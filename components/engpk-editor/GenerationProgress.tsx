@@ -175,6 +175,20 @@ function buildSteps(state: GenerationState): Step[] {
     steps.push({ id: 'teammates', label: 'AI 队友生成', status: 'pending' });
   }
 
+  // Step 2.5: 教学大纲生成
+  if (state.outline) {
+    steps.push({
+      id: 'outline',
+      label: '教学大纲生成',
+      status: 'done',
+      detail: state.outline.lessonTitle + ' · ' + state.outline.learningObjectives.length + ' 个学习目标',
+    });
+  } else if (state.teammates) {
+    steps.push({ id: 'outline', label: '教学大纲生成', status: 'active', detail: '正在扩写知识点…' });
+  } else {
+    steps.push({ id: 'outline', label: '教学大纲生成', status: 'pending' });
+  }
+
   // Step 3: 风格确定
   if (state.style) {
     steps.push({
@@ -183,7 +197,7 @@ function buildSteps(state: GenerationState): Step[] {
       status: 'done',
       detail: state.style.styleToken.motif + ' · ' + state.style.styleToken.primaryColor,
     });
-  } else if (state.teammates) {
+  } else if (state.outline) {
     steps.push({ id: 'style', label: '课程风格确定', status: 'active' });
   } else {
     steps.push({ id: 'style', label: '课程风格确定', status: 'pending' });
