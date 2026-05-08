@@ -17,9 +17,10 @@
  * 此处的"生成课件"按钮先 stub 成 onSubmit prop。
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseLocally } from '@/lib/engpk/instruction';
 import { SCENE_MODE_LABELS, type SceneMode } from '@/lib/engpk/instruction/types';
+import { useAIPlanner } from '@/lib/engpk/client/use-ai-planner';
 import { cn } from '@/lib/utils';
 
 const PLACEHOLDER = `第1页：【封面】+奇幻英语冒险+内容：Level 1 启程
@@ -71,6 +72,22 @@ export function InstructionEditor({
   const hasContent = result.lines.length > 0;
   const canSubmit = validCount > 0 && errorCount === 0 && !submitting;
 
+  // AI Planner
+  const planner = useAIPlanner();
+  const [plannerTopic, setPlannerTopic] = useState('');
+  const [showPlannerInput, setShowPlannerInput] = useState(false);
+
+  const handlePlan = useCallback(async () => {
+    if (!plannerTopic.trim()) return;
+    const instructions = await planner.plan(plannerTopic.trim());
+    if (instructions) {
+      // Replace textarea content with AI-generated instructions
+      setRawText(instructions);
+      setShowPlannerInput(false);
+      setPlannerTopic('');
+    }
+  }, [plannerTopic, planner]);
+
   return (
     <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-2">
       {/* 左：输入区 */}
@@ -80,6 +97,65 @@ export function InstructionEditor({
           <span className="text-xs text-muted-foreground">
             每行一条；格式：第N页：【模式】+描述+内容：XXX
           </span>
+        </div>
+
+        {/* AI 规划区域 */}
+        <div className="flex flex-col gap-2">
+          {!showPlannerInput ? (
+            <button
+              type="button"
+              onClick={() => setShowPlannerInput(true)}
+              disabled={planner.status === 'loading' || submitting}
+              className={cn(
+                'self-start rounded-md border border-dashed border-primary/50 px-3 py-1.5',
+                'text-xs font-medium text-primary hover:bg-primary/5',
+                'transition-colors disabled:opacity-40',
+              )}
+              data-testid="ai-planner-button"
+            >
+              AI 帮我规划课程
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={plannerTopic}
+                onChange={(e) => setPlannerTopic(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handlePlan();
+                  if (e.key === 'Escape') setShowPlannerInput(false);
+                }}
+                placeholder="输入主题，如：学习英语单词 this, that, these"
+                autoFocus
+                className={cn(
+                  'flex-1 rounded-md border border-input bg-background px-3 py-1.5',
+                  'text-sm outline-none focus:ring-2 focus:ring-ring',
+                )}
+                data-testid="ai-planner-input"
+              />
+              <button
+                type="button"
+                onClick={handlePlan}
+                disabled={!plannerTopic.trim() || planner.status === 'loading'}
+                className={cn(
+                  'rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground',
+                  'transition-opacity disabled:opacity-40',
+                )}
+              >
+                {planner.status === 'loading' ? '规划中…' : '规划'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowPlannerInput(false); planner.abort(); }}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                取消
+              </button>
+            </div>
+          )}
+          {planner.status === 'error' && (
+            <p className="text-xs text-destructive">{planner.error || '规划失败，请重试'}</p>
+          )}
         </div>
 
         <textarea
