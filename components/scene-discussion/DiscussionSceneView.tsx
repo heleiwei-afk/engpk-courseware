@@ -29,9 +29,8 @@ import { useServerTTS } from '@/lib/engpk/client/use-server-tts';
 import { getTeacherVoice, assignTeammateVoices } from '@/lib/engpk/audio/voice-config';
 import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'motion/react';
-import { RoundtableStage, type RoundtableState } from './RoundtableStage';
+import type { RoundtableState } from './RoundtableStage';
 import { ProactiveCard } from './ProactiveCard';
-import { DiscussionHistory } from './DiscussionHistory';
 
 interface ChatMessage {
   id: string;
@@ -369,7 +368,7 @@ export function DiscussionSceneView({
       className="flex h-full w-full flex-col overflow-hidden"
       data-testid="discussion-scene"
     >
-      {/* 顶部：话题信息 */}
+      {/* 顶部：话题 + 头像行 */}
       <div className="shrink-0 border-b border-border bg-sky-50/50 px-6 py-3 dark:bg-sky-950/20">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-sky-800 dark:text-sky-200">
@@ -380,10 +379,69 @@ export function DiscussionSceneView({
           </span>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">{task}</p>
+
+        {/* 头像行 */}
+        <div className="mt-3 flex items-center gap-3">
+          {/* 老师 */}
+          <div className={cn(
+            'flex flex-col items-center gap-0.5 transition-all duration-300',
+            roundtableState === 'speaking' && currentSpeakerName === 'AI 老师' ? 'scale-110' : 'opacity-70',
+          )}>
+            <div className={cn(
+              'h-10 w-10 rounded-full border-2 flex items-center justify-center bg-amber-100 text-xs font-bold dark:bg-amber-900/40',
+              roundtableState === 'speaking' && currentSpeakerName === 'AI 老师'
+                ? 'border-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.4)]'
+                : 'border-border',
+            )}>
+              AI
+            </div>
+            <span className="text-[9px] text-muted-foreground">老师</span>
+          </div>
+
+          {/* 学员们 */}
+          {teammates.slice(0, 3).map((t) => {
+            const isSpeaking = speakingAgentId === t.id;
+            return (
+              <div key={t.id} className={cn(
+                'flex flex-col items-center gap-0.5 transition-all duration-300',
+                isSpeaking ? 'scale-110' : 'opacity-70',
+              )}>
+                <div className={cn(
+                  'relative h-10 w-10 rounded-full border-2 overflow-hidden',
+                  isSpeaking
+                    ? 'border-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.4)]'
+                    : 'border-border',
+                )}>
+                  <img src={t.avatar} alt={t.nickname} className="h-full w-full object-cover" />
+                  {isSpeaking ? (
+                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-1 ring-white" />
+                  ) : null}
+                </div>
+                <span className="text-[9px] text-muted-foreground">{t.nickname}</span>
+              </div>
+            );
+          })}
+
+          {/* 用户 */}
+          <div className={cn(
+            'flex flex-col items-center gap-0.5 transition-all duration-300',
+            roundtableState === 'cue-user' ? 'scale-110' : 'opacity-70',
+          )}>
+            <div className={cn(
+              'h-10 w-10 rounded-full border-2 flex items-center justify-center bg-emerald-100 text-xs font-bold dark:bg-emerald-900/40',
+              roundtableState === 'cue-user'
+                ? 'border-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.4)] animate-pulse'
+                : 'border-border',
+            )}>
+              你
+            </div>
+            <span className="text-[9px] text-muted-foreground">我</span>
+          </div>
+        </div>
       </div>
 
-      {/* 中间：圆桌舞台 */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 overflow-hidden px-6 py-4">
+      {/* 中间：ProactiveCard 或 群聊消息列表 */}
+      <div className="flex-1 overflow-y-auto px-6 py-4">
         <AnimatePresence mode="wait">
           {status === 'idle' && showProactive ? (
             <ProactiveCard
@@ -392,33 +450,60 @@ export function DiscussionSceneView({
               onJoin={() => { setShowProactive(false); startDiscussion(); }}
               onSkip={() => { setShowProactive(false); onContinue?.(); }}
             />
-          ) : (
-            <RoundtableStage
-              key="roundtable"
-              state={roundtableState}
-              teammates={teammates}
-              speakingAgentId={speakingAgentId}
-              speakingAgentName={currentSpeakerName}
-              currentText={currentBubbleText}
-              isStreaming={isBubbleStreaming}
-              userAvatar="/avatars/default.png"
-              userNickname="你"
-            />
-          )}
+          ) : null}
         </AnimatePresence>
+
+        {/* 群聊消息列表 */}
+        {!(status === 'idle' && showProactive) ? (
+          <div className="mx-auto max-w-2xl space-y-3">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={cn(
+                  'flex gap-2',
+                  msg.role === 'user' ? 'flex-row-reverse' : 'flex-row',
+                )}
+              >
+                {msg.role === 'system' ? (
+                  <div className="w-full text-center text-xs text-muted-foreground/70 py-1">
+                    {msg.text}
+                  </div>
+                ) : (
+                  <>
+                    <div className="shrink-0">
+                      {msg.role === 'teacher' ? (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold dark:bg-amber-900/40">AI</div>
+                      ) : msg.role === 'user' ? (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold dark:bg-emerald-900/40">你</div>
+                      ) : (
+                        <img src={getTeammate(msg.agentId)?.avatar || '/avatars/default.png'} alt="" className="h-8 w-8 rounded-full object-cover" />
+                      )}
+                    </div>
+                    <div className={cn(
+                      'max-w-[70%] rounded-xl px-3 py-2 text-sm',
+                      msg.role === 'user' ? 'bg-primary text-primary-foreground' :
+                      msg.role === 'teacher' ? 'bg-amber-50 dark:bg-amber-950/40' : 'bg-muted',
+                    )}>
+                      {msg.role !== 'user' && msg.agentName ? (
+                        <div className="mb-0.5 text-[10px] font-medium text-muted-foreground">{msg.agentName}</div>
+                      ) : null}
+                      <div className="whitespace-pre-wrap leading-relaxed">
+                        {msg.text || (msg.streaming ? '…' : '')}
+                        {msg.streaming ? (
+                          <span className="ml-0.5 inline-block h-3.5 w-1 animate-pulse bg-primary/60 align-middle" />
+                        ) : null}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+        ) : null}
       </div>
 
-      {/* 历史消息折叠区 */}
-      <DiscussionHistory
-        messages={messages.map((m) => ({
-          id: m.id,
-          role: m.role,
-          agentName: m.agentName,
-          text: m.text,
-        }))}
-      />
-
-      {/* 底部：操作区 */}
+      {/* 底部：输入区（文字/语音切换） */}
       <div className="shrink-0 border-t border-border bg-card px-6 py-3">
         {status === 'idle' && !showProactive ? (
           <button
@@ -447,7 +532,7 @@ export function DiscussionSceneView({
               disabled={!userInput.trim() || sendCooldown}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
             >
-              {sendCooldown ? '…' : '发言'}
+              {sendCooldown ? '…' : '发送'}
             </button>
           </div>
         ) : status === 'running' ? (
