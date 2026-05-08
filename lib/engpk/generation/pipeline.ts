@@ -45,6 +45,7 @@ import { buildCourseContext, formatContextForPrompt } from './context-injector';
 import { formatAgentContextForPrompt } from './agent-context-builder';
 import { buildCourseOutline } from './outline-builder';
 import { formatSceneOutlineForPrompt } from './outline-formatter';
+import { resolveSceneImages } from './image-resolver';
 import type { CourseOutline, SceneOutline } from '../types/course-outline';
 
 export interface RunPipelineInput {
@@ -223,6 +224,8 @@ export async function* runMockGenerationPipeline(
         courseContext,
         sceneOutline,
       });
+      // Resolve images (if any image blocks have prompts without URLs)
+      await resolveSceneImages(scene, lessonId).catch(() => {});
       upsertScene(lessonId, scene);
       yield {
         type: 'scene-ready',
