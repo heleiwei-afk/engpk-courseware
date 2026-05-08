@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'motion/react';
 import type { RoundtableState } from './RoundtableStage';
 import { ProactiveCard } from './ProactiveCard';
+import { VoiceInputButton } from './VoiceInputButton';
 
 interface ChatMessage {
   id: string;
@@ -525,6 +526,10 @@ export function DiscussionSceneView({
               placeholder="输入你的想法…"
               autoFocus
               className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <VoiceInputButton
+              onTranscript={(text) => { setUserInput(text); }}
+              disabled={sendCooldown}
             />
             <button
               type="button"
