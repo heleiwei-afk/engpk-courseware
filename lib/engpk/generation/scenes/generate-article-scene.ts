@@ -30,6 +30,11 @@ import {
   ARTICLE_SYSTEM_PROMPT,
   buildArticleUserPrompt,
 } from '../prompts/article';
+import {
+  ARTICLE_ACTIONS_SYSTEM_PROMPT,
+  buildArticleActionsUserPrompt,
+} from '../prompts/article-actions';
+import { parseArticleActions } from './article-action-parser';
 
 const log = createLogger('engpk:gen:article');
 
@@ -171,34 +176,43 @@ export async function generateArticleScene(
     ];
   }
 
-  const speechTexts = normalizeSpeeches(parsed?.teacherSpeeches, 90);
-  const speechesFinal = speechTexts.length > 0 ? speechTexts : ['我们一起来看看这一页的内容。'];
-  const focus = alignFocusIndexes(parsed?.focusBlockIndexes, speechesFinal.length, blocks.length);
+  // ========== Stage 2: Generate actions (spotlight + speech interleaved) ==========
+  // This is the MAIC-style "narration generation" — a separate LLM call that
+  // takes the blocks + keyPoints and produces rich teaching narration.
+  let actions: Array<{ id: string; type: string; text?: string; blockIndex?: number }> = [];
 
-  // Build interleaved action sequence: spotlight(blockIndex) → speech → spotlight(next) → speech → ...
-  // This creates the "highlight then explain" rhythm that MAIC uses.
-  const actions: Array<{ id: string; type: string; text?: string; blockIndex?: number }> = [];
-  for (let i = 0; i < speechesFinal.length; i++) {
-    const blockIdx = focus[i];
-    // Add spotlight action before speech (if pointing to a valid block)
-    if (blockIdx >= 0 && blockIdx < blocks.length) {
-      actions.push({
-        id: uuid(),
-        type: 'spotlight',
-        blockIndex: blockIdx,
-      });
+  // Extract keyPoints from courseContext (if outline was injected)
+  const keyPointsMatch = courseContext?.match(/Key points to cover:\n([\s\S]*?)(?:\n---|\nConcepts|$)/);
+  const keyPoints: string[] = keyPointsMatch
+    ? keyPointsMatch[1].split('\n').map((l) => l.replace(/^\s*\d+\.\s*/, '').trim()).filter(Boolean)
+    : [instruction.content];
+
+  try {
+    const actionsRes = await callLLM(
+      {
+        model: resolvedModel.model,
+        maxOutputTokens: 2000,
+        messages: [
+          { role: 'system', content: ARTICLE_ACTIONS_SYSTEM_PROMPT },
+          { role: 'user', content: buildArticleActionsUserPrompt(blocks, keyPoints, courseContext) },
+        ],
+      },
+      'engpk-article-actions',
+    );
+    const parsed2 = parseArticleActions(actionsRes.text);
+    actions = parsed2;
+  } catch (err) {
+    log.warn('article actions LLM call failed; using fallback', err);
+    // Fallback: simple spotlight + speech for each block
+    for (let i = 0; i < Math.min(blocks.length, 3); i++) {
+      actions.push({ id: uuid(), type: 'spotlight', blockIndex: i });
+      actions.push({ id: uuid(), type: 'speech', text: '我们来看第 ' + (i + 1) + ' 个内容。' });
     }
-    // Add speech action
-    actions.push({
-      id: uuid(),
-      type: 'speech',
-      text: speechesFinal[i],
-    });
+    actions.push({ id: uuid(), type: 'spotlight', blockIndex: -1 });
   }
-  // Final: clear spotlight
-  actions.push({ id: uuid(), type: 'spotlight', blockIndex: -1 });
 
   // metrics
+  const speeches = actions.filter((a) => a.type === 'speech');
   metricBus.dispatch(
     makeMetricEvent({
       name: 'generation.duration',
@@ -210,20 +224,22 @@ export async function generateArticleScene(
   metricBus.dispatch(
     makeMetricEvent({
       name: 'narration.count',
-      value: speechesFinal.length,
+      value: speeches.length,
       tags: { sceneType: 'article' },
       lessonId,
     }),
   );
-  for (const s of speechesFinal) {
-    metricBus.dispatch(
-      makeMetricEvent({
-        name: 'narration.length',
-        value: s.length,
-        tags: { sceneType: 'article' },
-        lessonId,
-      }),
-    );
+  for (const s of speeches) {
+    if (s.text) {
+      metricBus.dispatch(
+        makeMetricEvent({
+          name: 'narration.length',
+          value: s.text.length,
+          tags: { sceneType: 'article' },
+          lessonId,
+        }),
+      );
+    }
   }
 
   return {
@@ -237,7 +253,6 @@ export async function generateArticleScene(
     payload: {
       heading,
       blocks,
-      focusBlockIndexes: focus,
     },
   };
 }
