@@ -80,6 +80,10 @@ export function DiscussionSceneView({
   const [currentSpeakerName, setCurrentSpeakerName] = useState('');
   const [isBubbleStreaming, setIsBubbleStreaming] = useState(false);
   const [sendCooldown, setSendCooldown] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(5 * 60); // 5 minutes in seconds
+  const [extensionCount, setExtensionCount] = useState(0);
+  const [showExtendPrompt, setShowExtendPrompt] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -87,6 +91,58 @@ export function DiscussionSceneView({
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // 讨论倒计时 timer
+  useEffect(() => {
+    if (status === 'running' || status === 'waiting-user') {
+      timerRef.current = setInterval(() => {
+        setTimeLeft((t) => {
+          if (t <= 1) {
+            if (timerRef.current) clearInterval(timerRef.current);
+            setShowExtendPrompt(true);
+            return 0;
+          }
+          return t - 1;
+        });
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [status]);
+
+  // 续时
+  function handleExtend() {
+    setShowExtendPrompt(false);
+    setTimeLeft(3 * 60); // +3 minutes
+    setExtensionCount((c) => c + 1);
+    // 消耗积分
+    scoreBus.dispatch(
+      makeScoreEvent({
+        target: 'user',
+        delta: -10,
+        reason: '讨论续时',
+        source: 'discussion-reward',
+        sceneId: scene.id,
+      }),
+    );
+  }
+
+  // 退出讨论
+  function handleExitDiscussion() {
+    controllerRef.current?.abort();
+    if (timerRef.current) clearInterval(timerRef.current);
+    setStatus('done');
+    setRoundtableState('ended');
+    tts.stop();
+  }
+
+  // 格式化时间
+  function formatTime(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
 
   // 老师开场白
   useEffect(() => {
@@ -369,9 +425,38 @@ export function DiscussionSceneView({
 
   return (
     <div
-      className="flex h-full w-full flex-col overflow-hidden"
+      className="flex h-full w-full flex-col overflow-hidden relative"
       data-testid="discussion-scene"
     >
+      {/* 续时提示 */}
+      {showExtendPrompt ? (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="mx-4 max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <h3 className="mb-2 text-lg font-bold">讨论时间到</h3>
+            <p className="mb-4 text-sm text-muted-foreground">
+              本轮讨论时间已用完。续时需要消耗 10 积分。
+              {extensionCount > 0 ? '（已续时 ' + extensionCount + ' 次）' : ''}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleExtend}
+                className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              >
+                续时 3 分钟（-10 积分）
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowExtendPrompt(false); handleExitDiscussion(); }}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
+              >
+                结束讨论
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* 顶部：话题 + 头像行 */}
       <div className="shrink-0 border-b border-border bg-sky-50/50 px-6 py-3 dark:bg-sky-950/20">
         <div className="flex items-center justify-between">
@@ -380,6 +465,11 @@ export function DiscussionSceneView({
           </h2>
           <span className="text-xs text-muted-foreground">
             第 {round}/{expectedRounds} 轮
+            {(status === 'running' || status === 'waiting-user') ? (
+              <span className={cn('ml-2 tabular-nums', timeLeft <= 30 ? 'text-destructive font-bold' : '')}>
+                {formatTime(timeLeft)}
+              </span>
+            ) : null}
           </span>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">{task}</p>
@@ -542,11 +632,28 @@ export function DiscussionSceneView({
             >
               {sendCooldown ? '…' : '发送'}
             </button>
+            <button
+              type="button"
+              onClick={handleExitDiscussion}
+              className="rounded-md border border-border bg-background px-2 py-2 text-xs text-muted-foreground hover:bg-muted"
+              title="退出讨论"
+            >
+              退出
+            </button>
           </div>
         ) : status === 'running' ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-            讨论进行中…
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              讨论进行中…
+            </div>
+            <button
+              type="button"
+              onClick={handleExitDiscussion}
+              className="rounded-md border border-border bg-background px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
+            >
+              退出讨论
+            </button>
           </div>
         ) : status === 'done' ? (
           <div className="flex items-center gap-3">
