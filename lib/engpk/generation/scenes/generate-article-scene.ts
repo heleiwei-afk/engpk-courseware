@@ -24,7 +24,6 @@ import type {
   ArticleScene,
 } from '@/lib/engpk/types/scene-v2';
 import type { PageInstruction } from '@/lib/engpk/instruction/types';
-import type { SpeechAction } from '@/lib/types/action';
 import { metricBus, makeMetricEvent } from '@/lib/engpk/metric/bus';
 import { createLogger } from '@/lib/logger';
 import {
@@ -176,11 +175,28 @@ export async function generateArticleScene(
   const speechesFinal = speechTexts.length > 0 ? speechTexts : ['我们一起来看看这一页的内容。'];
   const focus = alignFocusIndexes(parsed?.focusBlockIndexes, speechesFinal.length, blocks.length);
 
-  const actions: SpeechAction[] = speechesFinal.map((text) => ({
-    id: uuid(),
-    type: 'speech',
-    text,
-  }));
+  // Build interleaved action sequence: spotlight(blockIndex) → speech → spotlight(next) → speech → ...
+  // This creates the "highlight then explain" rhythm that MAIC uses.
+  const actions: Array<{ id: string; type: string; text?: string; blockIndex?: number }> = [];
+  for (let i = 0; i < speechesFinal.length; i++) {
+    const blockIdx = focus[i];
+    // Add spotlight action before speech (if pointing to a valid block)
+    if (blockIdx >= 0 && blockIdx < blocks.length) {
+      actions.push({
+        id: uuid(),
+        type: 'spotlight',
+        blockIndex: blockIdx,
+      });
+    }
+    // Add speech action
+    actions.push({
+      id: uuid(),
+      type: 'speech',
+      text: speechesFinal[i],
+    });
+  }
+  // Final: clear spotlight
+  actions.push({ id: uuid(), type: 'spotlight', blockIndex: -1 });
 
   // metrics
   metricBus.dispatch(
@@ -216,7 +232,7 @@ export async function generateArticleScene(
     type: 'article',
     instruction,
     agentIds: teammateIds,
-    actions,
+    actions: actions as unknown as ArticleScene['actions'],
     status: 'ready',
     payload: {
       heading,

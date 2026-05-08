@@ -58,11 +58,17 @@ export function usePlaybackRuntime() {
 
       // Bridge wb_* and spotlight/laser actions to MAIC ActionEngine
       const actionType = action.type as string;
-      if (
-        actionType.startsWith('wb_') ||
-        actionType === 'spotlight' ||
-        actionType === 'laser'
-      ) {
+      if (actionType === 'spotlight') {
+        // engpk spotlight: update active block index in store
+        const blockIndex = (action as { blockIndex?: number }).blockIndex ?? -1;
+        // Store the spotlight state for ArticleSceneView to consume
+        if (typeof window !== 'undefined') {
+          (window as unknown as Record<string, number>).__engpkSpotlightIndex = blockIndex;
+          window.dispatchEvent(new CustomEvent('engpk-spotlight', { detail: blockIndex }));
+        }
+        return;
+      }
+      if (actionType.startsWith('wb_') || actionType === 'laser') {
         try {
           await executeMaicAction(action as unknown as Action);
         } catch {

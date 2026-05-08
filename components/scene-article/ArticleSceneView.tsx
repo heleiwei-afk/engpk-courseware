@@ -11,7 +11,7 @@
  *   - 提供 onContinue 进入下一页
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ArticleScene } from '@/lib/engpk/types/scene-v2';
 import { SpeakButton } from '@/components/engpk-editor/SpeakButton';
 import { SpotlightBlock } from './SpotlightBlock';
@@ -32,6 +32,20 @@ export function ArticleSceneView({ scene, onContinue }: ArticleSceneViewProps) {
 
   const [activeSpeechIdx, setActiveSpeechIdx] = useState<number>(0);
   const activeBlock = focusBlockIndexes[activeSpeechIdx] ?? -1;
+
+  // Listen for spotlight events from PlaybackEngine
+  const [spotlightIndex, setSpotlightIndex] = useState(-1);
+  useEffect(() => {
+    function handleSpotlight(e: Event) {
+      const idx = (e as CustomEvent).detail as number;
+      setSpotlightIndex(idx);
+    }
+    window.addEventListener('engpk-spotlight', handleSpotlight);
+    return () => window.removeEventListener('engpk-spotlight', handleSpotlight);
+  }, []);
+
+  // Use spotlight from playback engine if available, otherwise from manual click
+  const effectiveActiveBlock = spotlightIndex >= 0 ? spotlightIndex : activeBlock;
 
   function renderBlock(block: typeof blocks[number]) {
     switch (block.type) {
@@ -84,7 +98,7 @@ export function ArticleSceneView({ scene, onContinue }: ArticleSceneViewProps) {
             return (
               <SpotlightBlock
                 key={i}
-                activeIndex={activeBlock}
+                activeIndex={effectiveActiveBlock}
                 blockIndex={i}
                 totalBlocks={blocks.length}
               >
