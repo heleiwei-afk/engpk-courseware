@@ -16,6 +16,7 @@ import { EngpkPlaybackEngine, type PlaybackStatus } from '@/lib/engpk/playback/e
 import type { Scene } from '@/lib/engpk/types/scene-v2';
 import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
 import { useServerTTS } from './use-server-tts';
+import { getTeacherVoice } from '@/lib/engpk/audio/voice-config';
 import type { RuntimeAction } from '@/lib/engpk/action/runtime';
 
 export interface PlaybackRuntimeState {
@@ -33,7 +34,7 @@ export function usePlaybackRuntime() {
   const selectScene = useClassroomSession((s) => s.selectScene);
   const { speak, stop: stopTTS } = useServerTTS({
     providerId: 'doubao-tts',
-    voice: 'zh_female_vv_uranus_bigtts',
+    voice: getTeacherVoice(),
     fallbackToBrowser: true,
   });
 

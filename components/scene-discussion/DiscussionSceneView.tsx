@@ -26,6 +26,7 @@ import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
 import { scoreBus, makeScoreEvent } from '@/lib/engpk/score/bus';
 import { bulletBus, makeBulletEvent } from '@/lib/engpk/bullet/bus';
 import { useServerTTS } from '@/lib/engpk/client/use-server-tts';
+import { getTeacherVoice, assignTeammateVoices } from '@/lib/engpk/audio/voice-config';
 import { cn } from '@/lib/utils';
 import { AnimatePresence } from 'motion/react';
 import { RoundtableStage, type RoundtableState } from './RoundtableStage';
@@ -55,6 +56,16 @@ export function DiscussionSceneView({
   const notifySpeaking = useClassroomSession((s) => s.notifySpeaking);
   const speakingAgentId = useClassroomSession((s) => s.speakingAgentId);
   const tts = useServerTTS({ fallbackToBrowser: true });
+
+  // Assign different voices to each teammate
+  const teammateVoicesRef = useRef<Record<string, string>>({});
+  if (teammates.length > 0 && Object.keys(teammateVoicesRef.current).length === 0) {
+    const teacherVoice = getTeacherVoice();
+    const voices = assignTeammateVoices(teacherVoice, teammates.length);
+    teammates.forEach((t, i) => {
+      teammateVoicesRef.current[t.id] = voices[i] || teacherVoice;
+    });
+  }
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState<

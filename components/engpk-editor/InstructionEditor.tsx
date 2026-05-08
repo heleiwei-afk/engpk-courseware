@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseLocally } from '@/lib/engpk/instruction';
 import { SCENE_MODE_LABELS, type SceneMode } from '@/lib/engpk/instruction/types';
 import { useAIPlanner } from '@/lib/engpk/client/use-ai-planner';
+import { VoiceSelector } from './VoiceSelector';
 import { cn } from '@/lib/utils';
 
 const PLACEHOLDER = `第1页：【封面】+奇幻英语冒险+内容：Level 1 启程
@@ -99,18 +100,19 @@ export function InstructionEditor({
           </span>
         </div>
 
-        {/* AI 规划区域 */}
+        {/* AI 规划区域 + 声音选择 */}
         <div className="flex flex-col gap-2">
-          {!showPlannerInput ? (
-            <button
-              type="button"
-              onClick={() => setShowPlannerInput(true)}
-              disabled={planner.status === 'loading' || submitting}
-              className={cn(
-                'self-start rounded-md border border-dashed border-primary/50 px-3 py-1.5',
-                'text-xs font-medium text-primary hover:bg-primary/5',
-                'transition-colors disabled:opacity-40',
-              )}
+          <div className="flex items-center gap-3 flex-wrap">
+            {!showPlannerInput ? (
+              <button
+                type="button"
+                onClick={() => setShowPlannerInput(true)}
+                disabled={planner.status === 'loading' || submitting}
+                className={cn(
+                  'rounded-md border border-dashed border-primary/50 px-3 py-1.5',
+                  'text-xs font-medium text-primary hover:bg-primary/5',
+                  'transition-colors disabled:opacity-40',
+                )}
               data-testid="ai-planner-button"
             >
               AI 帮我规划课程
@@ -153,6 +155,8 @@ export function InstructionEditor({
               </button>
             </div>
           )}
+          <VoiceSelector />
+          </div>
           {planner.status === 'error' && (
             <p className="text-xs text-destructive">{planner.error || '规划失败，请重试'}</p>
           )}
