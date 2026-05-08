@@ -30,6 +30,7 @@ import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
 import { useEngpkFlush } from '@/lib/engpk/client/use-engpk-flush';
 import { usePlaybackRuntime } from '@/lib/engpk/client/use-playback-runtime';
 import { useKeyboardShortcuts } from '@/lib/engpk/client/use-keyboard-shortcuts';
+import { useTeammateChatter } from '@/lib/engpk/chatter/teammate-chatter';
 import type { Lesson, Scene } from '@/lib/engpk/types/scene-v2';
 import { SCENE_MODE_LABELS } from '@/lib/engpk/instruction/types';
 
@@ -41,7 +42,10 @@ export default function EngpkClassroomPage() {
   useEngpkFlush({ userId: 'dev-user', disabled: !lessonId });
 
   // ─── Playback Engine ───────────────────────────────────────────
-  const playback = usePlaybackRuntime();
+  const chatterRef = useRef<(() => void) | null>(null);
+  const playback = usePlaybackRuntime({
+    onActionEnd: () => { chatterRef.current?.(); },
+  });
   const [speed, setSpeed] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -173,6 +177,18 @@ export default function EngpkClassroomPage() {
   }, [playback]);
 
   const currentScene = scenes[currentIndex];
+
+  // ─── AI Teammate Chatter Engine ──────────────────────────────
+  const currentContext = currentScene
+    ? currentScene.instruction.description + ' ' + currentScene.instruction.content
+    : '';
+  const { triggerProactiveChatter } = useTeammateChatter({
+    currentContext,
+    enabled: !loading && scenes.length > 0,
+  });
+
+  // Wire chatter to playback engine's onActionEnd
+  chatterRef.current = triggerProactiveChatter;
 
   return (
     <div ref={containerRef} className="flex h-screen flex-col">
