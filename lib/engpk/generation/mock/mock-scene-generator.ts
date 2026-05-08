@@ -36,12 +36,24 @@ export async function mockGenerateScene(
   await sleep(200 + Math.floor(Math.random() * 400));
 
   const id = uuid();
+
+  // 每种场景至少 1 条 speech，避免 PlaybackEngine 空 actions 跳过
+  const defaultSpeechMap: Record<SceneType, string> = {
+    cover: '欢迎来到本节课！准备好了吗？',
+    warmup: '准备好了吗？跟着节奏动起来！',
+    'video-review': '跟着视频一起动起来吧！',
+    game: '来玩个小游戏，看看你能得多少分！',
+    discussion: '我们来讨论一下这个话题。',
+    article: '我们一起来看看这一页的内容。',
+    ending: '恭喜你完成了本节课！来看看你的成绩吧。',
+  };
+
   const base = {
     id,
     order: instruction.index,
     instruction,
     agentIds: teammateIds,
-    actions: [],
+    actions: [{ id: uuid(), type: 'speech' as const, text: defaultSpeechMap[instruction.mode] }],
     status: 'ready' as const,
   };
 

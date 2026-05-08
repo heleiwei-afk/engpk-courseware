@@ -169,9 +169,9 @@ export async function generateGameScene(
   // 注入 CSP
   gameHtml = injectCSP(gameHtml);
 
-  const actions: SpeechAction[] = teacherSpeech
-    ? [{ id: uuid(), type: 'speech', text: teacherSpeech }]
-    : [];
+  const actions: SpeechAction[] = [
+    { id: uuid(), type: 'speech', text: teacherSpeech || '来玩个小游戏吧！看看你能得多少分！' },
+  ];
 
   metricBus.dispatch(
     makeMetricEvent({

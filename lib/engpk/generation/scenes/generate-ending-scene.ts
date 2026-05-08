@@ -159,7 +159,7 @@ export async function generateEndingScene(
     type: 'ending',
     instruction,
     agentIds: teammateIds,
-    actions: [],
+    actions: [{ id: uuid(), type: 'speech' as const, text: '恭喜你完成了本节课！来看看你的成绩吧。' }],
     status: 'ready',
     payload: {
       endingGameTemplate: gameTemplate,

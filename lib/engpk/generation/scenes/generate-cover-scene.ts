@@ -145,7 +145,7 @@ export async function generateCoverScene(
     240,
     `cover illustration of "${title}", educational, no text`,
   );
-  const teacherSpeechText = clampString(parsed?.teacherSpeech, 60, '');
+  const teacherSpeechText = clampString(parsed?.teacherSpeech, 60, '') || '欢迎来到本节课！准备好了吗？';
 
   const actions: SpeechAction[] = teacherSpeechText
     ? [
