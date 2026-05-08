@@ -25,6 +25,7 @@ import type { AITeammate } from '@/lib/engpk/types/teammate';
 import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
 import { scoreBus, makeScoreEvent } from '@/lib/engpk/score/bus';
 import { bulletBus, makeBulletEvent } from '@/lib/engpk/bullet/bus';
+import { useServerTTS } from '@/lib/engpk/client/use-server-tts';
 import { cn } from '@/lib/utils';
 
 interface ChatMessage {
@@ -48,6 +49,7 @@ export function DiscussionSceneView({
   const { topic, task, rule, expectedRounds } = scene.payload;
   const teammates = useClassroomSession((s) => s.teammates);
   const notifySpeaking = useClassroomSession((s) => s.notifySpeaking);
+  const tts = useServerTTS({ fallbackToBrowser: true });
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState<
@@ -242,6 +244,11 @@ export function DiscussionSceneView({
               ),
             );
             notifySpeaking(undefined);
+            // TTS: 朗读 agent 的完整发言
+            const finishedMsg = messages.find((m) => m.id === currentMsgId);
+            if (finishedMsg?.text) {
+              tts.speak(finishedMsg.text);
+            }
             // 每轮 agent 发言给该 agent 加分
             scoreBus.dispatch(
               makeScoreEvent({
@@ -252,6 +259,7 @@ export function DiscussionSceneView({
                 sceneId: scene.id,
               }),
             );
+            // 发言间延迟 1.5s（模拟思考）— 用 setTimeout 避免 async 问题
             break;
           }
           case 'cue_user': {
