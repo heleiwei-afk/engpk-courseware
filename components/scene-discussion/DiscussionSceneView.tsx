@@ -76,6 +76,7 @@ export function DiscussionSceneView({
   const [showProactive, setShowProactive] = useState(true);
   const [roundtableState, setRoundtableState] = useState<RoundtableState>('idle');
   const [currentBubbleText, setCurrentBubbleText] = useState('');
+  const bubbleTextRef = useRef('');
   const [currentSpeakerName, setCurrentSpeakerName] = useState('');
   const [isBubbleStreaming, setIsBubbleStreaming] = useState(false);
   const [sendCooldown, setSendCooldown] = useState(false);
@@ -237,6 +238,7 @@ export function DiscussionSceneView({
             notifySpeaking(currentAgentId);
             setRoundtableState('speaking');
             setCurrentBubbleText('');
+            bubbleTextRef.current = '';
             setCurrentSpeakerName(currentAgentName);
             setIsBubbleStreaming(true);
             setSendCooldown(false);
@@ -255,6 +257,7 @@ export function DiscussionSceneView({
           }
           case 'text_delta': {
             const content = (event.data.content as string) || '';
+            bubbleTextRef.current += content;
             setCurrentBubbleText((prev) => prev + content);
             setMessages((prev) =>
               prev.map((m) =>
@@ -272,10 +275,10 @@ export function DiscussionSceneView({
               ),
             );
             notifySpeaking(undefined);
-            // TTS: 朗读 agent 的完整发言
-            const finishedMsg = messages.find((m) => m.id === currentMsgId);
-            if (finishedMsg?.text) {
-              tts.speak(finishedMsg.text);
+            // TTS: 朗读 agent 的完整发言（用该 agent 的专属声音）
+            if (bubbleTextRef.current) {
+              const agentVoice = teammateVoicesRef.current[currentAgentId] || undefined;
+              tts.speak(bubbleTextRef.current, agentVoice);
             }
             // 每轮 agent 发言给该 agent 加分
             scoreBus.dispatch(

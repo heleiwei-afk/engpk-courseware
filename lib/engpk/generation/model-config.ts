@@ -18,7 +18,7 @@ import type { ResolvedModel } from '@/lib/server/resolve-model';
  * engpk 场景生成的默认模型。
  * 当 API route 未能从请求中解析到模型时使用。
  */
-export const ENGPK_DEFAULT_MODEL_STRING = 'anthropic/claude-opus-4-7';
+export const ENGPK_DEFAULT_MODEL_STRING = 'anthropic:claude-opus-4-7';
 
 /**
  * 获取 engpk 生成管线使用的模型字符串。

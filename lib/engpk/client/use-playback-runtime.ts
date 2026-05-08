@@ -16,7 +16,6 @@ import { EngpkPlaybackEngine, type PlaybackStatus } from '@/lib/engpk/playback/e
 import type { Scene } from '@/lib/engpk/types/scene-v2';
 import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
 import { useServerTTS } from './use-server-tts';
-import { getTeacherVoice } from '@/lib/engpk/audio/voice-config';
 import type { RuntimeAction } from '@/lib/engpk/action/runtime';
 
 export interface PlaybackRuntimeState {
@@ -32,9 +31,9 @@ export function usePlaybackRuntime() {
 
   const engineRef = useRef<EngpkPlaybackEngine | null>(null);
   const selectScene = useClassroomSession((s) => s.selectScene);
+  // Read voice dynamically on each speak call (not cached at hook init)
   const { speak, stop: stopTTS } = useServerTTS({
     providerId: 'doubao-tts',
-    voice: getTeacherVoice(),
     fallbackToBrowser: true,
   });
 

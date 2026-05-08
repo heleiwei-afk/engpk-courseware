@@ -33,13 +33,17 @@ export function useServerTTS(options?: UseServerTTSOptions) {
   const browserTTS = useBrowserTTS({ rate: options?.speed });
 
   const providerId = options?.providerId || 'doubao-tts';
-  const voice = options?.voice || 'zh_female_vv_uranus_bigtts';
+  const defaultVoice = options?.voice || '';
   const speed = options?.speed || 1.0;
   const fallbackToBrowser = options?.fallbackToBrowser !== false;
 
   const speak = useCallback(
-    async (text: string): Promise<void> => {
+    async (text: string, voiceOverride?: string): Promise<void> => {
       if (!text.trim()) return;
+      // Use override > options.voice > localStorage teacher voice > hardcoded default
+      const resolvedVoice = voiceOverride || defaultVoice ||
+        (typeof window !== 'undefined' ? localStorage.getItem('engpk:teacherVoice') : null) ||
+        'zh_female_vv_uranus_bigtts';
 
       // Abort previous
       abortRef.current?.abort();
@@ -60,7 +64,7 @@ export function useServerTTS(options?: UseServerTTSOptions) {
             text,
             audioId: 'engpk-' + Date.now(),
             ttsProviderId: providerId,
-            ttsVoice: voice,
+            ttsVoice: resolvedVoice,
             ttsSpeed: speed,
           }),
           signal: controller.signal,
@@ -103,7 +107,7 @@ export function useServerTTS(options?: UseServerTTSOptions) {
         }
       }
     },
-    [providerId, voice, speed, fallbackToBrowser, browserTTS],
+    [providerId, defaultVoice, speed, fallbackToBrowser, browserTTS],
   );
 
   const stop = useCallback(() => {
