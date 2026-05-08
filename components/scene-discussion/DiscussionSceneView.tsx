@@ -27,6 +27,10 @@ import { scoreBus, makeScoreEvent } from '@/lib/engpk/score/bus';
 import { bulletBus, makeBulletEvent } from '@/lib/engpk/bullet/bus';
 import { useServerTTS } from '@/lib/engpk/client/use-server-tts';
 import { cn } from '@/lib/utils';
+import { AnimatePresence } from 'motion/react';
+import { RoundtableStage, type RoundtableState } from './RoundtableStage';
+import { ProactiveCard } from './ProactiveCard';
+import { DiscussionHistory } from './DiscussionHistory';
 
 interface ChatMessage {
   id: string;
@@ -49,6 +53,7 @@ export function DiscussionSceneView({
   const { topic, task, rule, expectedRounds } = scene.payload;
   const teammates = useClassroomSession((s) => s.teammates);
   const notifySpeaking = useClassroomSession((s) => s.notifySpeaking);
+  const speakingAgentId = useClassroomSession((s) => s.speakingAgentId);
   const tts = useServerTTS({ fallbackToBrowser: true });
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -57,6 +62,12 @@ export function DiscussionSceneView({
   >('idle');
   const [userInput, setUserInput] = useState('');
   const [round, setRound] = useState(0);
+  const [showProactive, setShowProactive] = useState(true);
+  const [roundtableState, setRoundtableState] = useState<RoundtableState>('idle');
+  const [currentBubbleText, setCurrentBubbleText] = useState('');
+  const [currentSpeakerName, setCurrentSpeakerName] = useState('');
+  const [isBubbleStreaming, setIsBubbleStreaming] = useState(false);
+  const [sendCooldown, setSendCooldown] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -213,6 +224,11 @@ export function DiscussionSceneView({
             currentAgentId = (event.data.agentId as string) || '';
             currentAgentName = (event.data.agentName as string) || '';
             notifySpeaking(currentAgentId);
+            setRoundtableState('speaking');
+            setCurrentBubbleText('');
+            setCurrentSpeakerName(currentAgentName);
+            setIsBubbleStreaming(true);
+            setSendCooldown(false);
             setMessages((prev) => [
               ...prev,
               {
@@ -228,6 +244,7 @@ export function DiscussionSceneView({
           }
           case 'text_delta': {
             const content = (event.data.content as string) || '';
+            setCurrentBubbleText((prev) => prev + content);
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === currentMsgId
@@ -264,6 +281,7 @@ export function DiscussionSceneView({
           }
           case 'cue_user': {
             setStatus('waiting-user');
+            setRoundtableState('cue-user');
             setMessages((prev) => [
               ...prev,
               {
@@ -279,6 +297,7 @@ export function DiscussionSceneView({
             notifySpeaking(undefined);
             if (round + 1 >= expectedRounds) {
               setStatus('done');
+              setRoundtableState('ended');
               bulletBus.dispatch(
                 makeBulletEvent({
                   text: '讨论结束！',
@@ -340,36 +359,57 @@ export function DiscussionSceneView({
       data-testid="discussion-scene"
     >
       {/* 顶部：话题信息 */}
-      <div className="shrink-0 border-b border-border bg-sky-50/50 px-6 py-4 dark:bg-sky-950/20">
-        <h2 className="text-lg font-bold text-sky-800 dark:text-sky-200">
-          💬 {topic}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <span className="font-medium">任务：</span>
-          {task}
-        </p>
-        <p className="text-xs text-muted-foreground/70">
-          规则：{rule} · 预计 {expectedRounds} 轮
-        </p>
+      <div className="shrink-0 border-b border-border bg-sky-50/50 px-6 py-3 dark:bg-sky-950/20">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-sky-800 dark:text-sky-200">
+            {topic}
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            第 {round}/{expectedRounds} 轮
+          </span>
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">{task}</p>
       </div>
 
-      {/* 中间：对话区 */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        <div className="mx-auto max-w-2xl space-y-3">
-          {messages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              msg={msg}
-              teammate={getTeammate(msg.agentId)}
+      {/* 中间：圆桌舞台 */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 overflow-hidden px-6 py-4">
+        <AnimatePresence mode="wait">
+          {status === 'idle' && showProactive ? (
+            <ProactiveCard
+              key="proactive"
+              topic={topic}
+              onJoin={() => { setShowProactive(false); startDiscussion(); }}
+              onSkip={() => { setShowProactive(false); onContinue?.(); }}
             />
-          ))}
-          <div ref={chatEndRef} />
-        </div>
+          ) : (
+            <RoundtableStage
+              key="roundtable"
+              state={roundtableState}
+              teammates={teammates}
+              speakingAgentId={speakingAgentId}
+              speakingAgentName={currentSpeakerName}
+              currentText={currentBubbleText}
+              isStreaming={isBubbleStreaming}
+              userAvatar="/avatars/default.png"
+              userNickname="你"
+            />
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* 历史消息折叠区 */}
+      <DiscussionHistory
+        messages={messages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          agentName: m.agentName,
+          text: m.text,
+        }))}
+      />
 
       {/* 底部：操作区 */}
       <div className="shrink-0 border-t border-border bg-card px-6 py-3">
-        {status === 'idle' ? (
+        {status === 'idle' && !showProactive ? (
           <button
             type="button"
             onClick={startDiscussion}
@@ -384,18 +424,19 @@ export function DiscussionSceneView({
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleUserSend();
+                if (e.key === 'Enter') { handleUserSend(); setSendCooldown(true); }
               }}
               placeholder="输入你的想法…"
+              autoFocus
               className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
             <button
               type="button"
-              onClick={handleUserSend}
-              disabled={!userInput.trim()}
+              onClick={() => { handleUserSend(); setSendCooldown(true); }}
+              disabled={!userInput.trim() || sendCooldown}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
             >
-              发言
+              {sendCooldown ? '…' : '发言'}
             </button>
           </div>
         ) : status === 'running' ? (
@@ -416,89 +457,11 @@ export function DiscussionSceneView({
               下一页 →
             </button>
           </div>
-        ) : (
+        ) : status === 'error' ? (
           <div className="text-sm text-destructive">
             讨论出错。
-            <button
-              type="button"
-              onClick={startDiscussion}
-              className="ml-2 underline"
-            >
-              重试
-            </button>
+            <button type="button" onClick={startDiscussion} className="ml-2 underline">重试</button>
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function MessageBubble({
-  msg,
-  teammate,
-}: {
-  msg: ChatMessage;
-  teammate?: AITeammate;
-}) {
-  const isUser = msg.role === 'user';
-  const isSystem = msg.role === 'system';
-  const isTeacher = msg.role === 'teacher';
-
-  if (isSystem) {
-    return (
-      <div className="text-center text-xs text-muted-foreground/70">
-        {msg.text}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        'flex gap-2',
-        isUser ? 'flex-row-reverse' : 'flex-row',
-      )}
-    >
-      {/* 头像 */}
-      <div className="shrink-0">
-        {isTeacher ? (
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-            师
-          </div>
-        ) : isUser ? (
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-xs text-white">
-            我
-          </div>
-        ) : (
-          <img
-            src={teammate?.avatar || '/avatars/default.png'}
-            alt={msg.agentName}
-            className="h-8 w-8 rounded-full object-cover"
-          />
-        )}
-      </div>
-
-      {/* 气泡 */}
-      <div
-        className={cn(
-          'max-w-[70%] rounded-xl px-3 py-2 text-sm',
-          isUser
-            ? 'bg-primary text-primary-foreground'
-            : isTeacher
-              ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100'
-              : 'bg-muted',
-        )}
-      >
-        {!isUser && !isTeacher && msg.agentName ? (
-          <div className="mb-0.5 text-[10px] font-medium text-muted-foreground">
-            {msg.agentName}
-          </div>
-        ) : null}
-        <div className="whitespace-pre-wrap leading-relaxed">
-          {msg.text || (msg.streaming ? '…' : '')}
-        </div>
-        {msg.streaming ? (
-          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-current opacity-60" />
         ) : null}
       </div>
     </div>
