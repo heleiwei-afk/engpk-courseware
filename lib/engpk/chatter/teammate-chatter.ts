@@ -4,13 +4,13 @@
  * engpk - Teammate Chatter Engine
  *
  * Makes AI teammates post contextual chat messages during playback:
- *   - Proactive: After each speech action, 30% chance to trigger
- *   - Responsive: When user sends a message, 1-2 teammates respond
+ *   - Proactive: Timer-based, every 1-5 seconds randomly triggers one teammate
+ *   - Responsive: When user sends a message, 1-2 teammates respond after 1-3s
  *
  * Uses /api/engpk/chatter for real-time LLM generation.
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { bulletBus, makeBulletEvent, type BulletEvent } from '@/lib/engpk/bullet/bus';
 import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
 import type { AITeammate } from '@/lib/engpk/types/teammate';
@@ -27,26 +27,43 @@ export function useTeammateChatter(options: UseTeammateChatterOptions) {
   const teammates = useClassroomSession((s) => s.teammates);
   const contextRef = useRef(currentContext);
   contextRef.current = currentContext;
+  const teammatesRef = useRef(teammates);
+  teammatesRef.current = teammates;
 
-  // ─── Proactive chatter: call after speech actions ───────────
-  const triggerProactiveChatter = useCallback(async () => {
+  // ─── Proactive chatter: timer-based, every 1-5 seconds ─────
+  useEffect(() => {
     if (!enabled || teammates.length === 0) return;
-    // 30% chance
-    if (Math.random() > 0.3) return;
 
-    const agent = teammates[Math.floor(Math.random() * teammates.length)];
-    const text = await fetchChatter(contextRef.current, agent);
-    if (text) {
-      bulletBus.dispatch(
-        makeBulletEvent({
-          text,
-          from: 'ai-teammate',
-          agentId: agent.id,
-          style: 'normal',
-        }),
-      );
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    function scheduleNext() {
+      const delay = 1000 + Math.floor(Math.random() * 4000); // 1-5s
+      timeoutId = setTimeout(async () => {
+        const agents = teammatesRef.current;
+        if (agents.length === 0) { scheduleNext(); return; }
+
+        const agent = agents[Math.floor(Math.random() * agents.length)];
+        const text = await fetchChatter(contextRef.current, agent);
+        if (text) {
+          bulletBus.dispatch(
+            makeBulletEvent({
+              text,
+              from: 'ai-teammate',
+              agentId: agent.id,
+              style: 'normal',
+            }),
+          );
+        }
+        scheduleNext();
+      }, delay);
     }
-  }, [enabled, teammates]);
+
+    scheduleNext();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [enabled, teammates.length]);
 
   // ─── Responsive chatter: respond to user messages ──────────
   useEffect(() => {
@@ -56,7 +73,7 @@ export function useTeammateChatter(options: UseTeammateChatterOptions) {
       if (event.from !== 'user') return;
       // 1-2 teammates respond after 1-3s delay
       const respondCount = 1 + Math.floor(Math.random() * 2);
-      const shuffled = [...teammates].sort(() => Math.random() - 0.5);
+      const shuffled = [...teammatesRef.current].sort(() => Math.random() - 0.5);
       const responders = shuffled.slice(0, respondCount);
 
       for (const agent of responders) {
@@ -82,9 +99,7 @@ export function useTeammateChatter(options: UseTeammateChatterOptions) {
     });
 
     return unsub;
-  }, [enabled, teammates]);
-
-  return { triggerProactiveChatter };
+  }, [enabled, teammates.length]);
 }
 
 async function fetchChatter(

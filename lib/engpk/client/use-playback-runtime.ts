@@ -23,12 +23,7 @@ export interface PlaybackRuntimeState {
   currentSceneIndex: number;
 }
 
-export interface UsePlaybackRuntimeOptions {
-  /** Called after each action finishes executing */
-  onActionEnd?: () => void;
-}
-
-export function usePlaybackRuntime(options?: UsePlaybackRuntimeOptions) {
+export function usePlaybackRuntime() {
   const [state, setState] = useState<PlaybackRuntimeState>({
     status: 'idle',
     currentSceneIndex: 0,
@@ -74,9 +69,6 @@ export function usePlaybackRuntime(options?: UsePlaybackRuntimeOptions) {
       onSceneChange: (index) => {
         setState((s) => ({ ...s, currentSceneIndex: index }));
         selectScene(index);
-      },
-      onActionEnd: () => {
-        options?.onActionEnd?.();
       },
     });
     engineRef.current = engine;

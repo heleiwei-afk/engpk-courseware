@@ -80,7 +80,7 @@ async function generateImageFromPrompt(prompt: string): Promise<string | null> {
   }
 
   const data = await res.json();
-  const result = data?.data?.result;
+  const result = data?.result || data?.data?.result;
 
   if (result?.url) return result.url;
   if (result?.base64) {

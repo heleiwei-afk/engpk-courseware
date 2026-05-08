@@ -42,10 +42,7 @@ export default function EngpkClassroomPage() {
   useEngpkFlush({ userId: 'dev-user', disabled: !lessonId });
 
   // ─── Playback Engine ───────────────────────────────────────────
-  const chatterRef = useRef<(() => void) | null>(null);
-  const playback = usePlaybackRuntime({
-    onActionEnd: () => { chatterRef.current?.(); },
-  });
+  const playback = usePlaybackRuntime();
   const [speed, setSpeed] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -182,13 +179,10 @@ export default function EngpkClassroomPage() {
   const currentContext = currentScene
     ? currentScene.instruction.description + ' ' + currentScene.instruction.content
     : '';
-  const { triggerProactiveChatter } = useTeammateChatter({
+  useTeammateChatter({
     currentContext,
     enabled: !loading && scenes.length > 0,
   });
-
-  // Wire chatter to playback engine's onActionEnd
-  chatterRef.current = triggerProactiveChatter;
 
   return (
     <div ref={containerRef} className="flex h-screen flex-col">
