@@ -15,7 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { EngpkPlaybackEngine, type PlaybackStatus } from '@/lib/engpk/playback/engine';
 import type { Scene } from '@/lib/engpk/types/scene-v2';
 import { useClassroomSession } from '@/lib/engpk/store/classroom-session';
-import { useBrowserTTS } from './use-browser-tts';
+import { useServerTTS } from './use-server-tts';
 import type { RuntimeAction } from '@/lib/engpk/action/runtime';
 
 export interface PlaybackRuntimeState {
@@ -31,7 +31,11 @@ export function usePlaybackRuntime() {
 
   const engineRef = useRef<EngpkPlaybackEngine | null>(null);
   const selectScene = useClassroomSession((s) => s.selectScene);
-  const { speak, stop: stopTTS } = useBrowserTTS();
+  const { speak, stop: stopTTS } = useServerTTS({
+    providerId: 'doubao-tts',
+    voice: 'zh_female_vv_uranus_bigtts',
+    fallbackToBrowser: true,
+  });
 
   // Speed stored in ref so engine callback can read latest without re-creating
   const speedRef = useRef(1.0);
