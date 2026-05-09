@@ -1,35 +1,12 @@
-# dependencies
 node_modules
-.pnpm-store
-
-# build output
 .next
-out
-build
-dist
-
-# git
+.env.local
+.env.production.local
 .git
 .gitignore
-
-# IDE
-.idea
-.vscode
-
-# env & secrets
-.env*
-!.env.example
-server-providers*.yml
-
-# misc
-assets
 *.md
-*.pdf
-*.pem
-.DS_Store
-.vercel
-coverage
-logs
-data
-docs
-.claude
+tests/
+e2e/
+test-results/
+docs/
+.turbo

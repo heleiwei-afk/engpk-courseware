@@ -1,15 +1,13 @@
 services:
-  openmaic:
+  engpk:
     build: .
+    container_name: engpk-courseware
     ports:
-      - "3000:3000"
+      - "3100:3000"
     env_file:
-      - .env.local
-    volumes:
-      # Optional: mount server-providers.yml for provider config
-      # - ./server-providers.yml:/app/server-providers.yml:ro
-      - openmaic-data:/app/data
+      - .env.production.local
     restart: unless-stopped
-
-volumes:
-  openmaic-data:
+    labels:
+      - "1panel.app=engpk-courseware"
+      - "1panel.name=engpk-courseware"
+      - "1panel.description=AI 互动课件生成引擎"
