@@ -3,6 +3,8 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package.json pnpm-lock.yaml ./
+COPY prisma ./prisma
+ENV DATABASE_URL="postgresql://x:x@localhost:5432/x"
 RUN pnpm install
 
 # ─── Stage 2: Generate Prisma + Build ────────────────────────────
