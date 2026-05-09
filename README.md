@@ -1,12 +1,162 @@
-<!-- engpk fork notice -->
-> **engpk 分支说明**：本仓库在 OpenMAIC 基础上增加了 `engpk` 互动课件生成工具（`lib/engpk/` + `components/scene-*/` + `/new` + `/classroom-engpk/`）。
-> 原 OpenMAIC 功能完整保留。engpk 相关设计文档见 [`docs/engpk/DESIGN.md`](docs/engpk/DESIGN.md)。
->
-> **许可证**：继承 AGPL-3.0。商业使用需联系 thu_maic@tsinghua.edu.cn。详见 [`docs/engpk/LICENSE-NOTICE.md`](docs/engpk/LICENSE-NOTICE.md)。
+<div align="center">
+  <h1>engpk · AI 互动课件生成引擎</h1>
+  <p><strong>一句话输入，AI 自动规划 8-12 页互动课堂</strong></p>
+  <p>7 类场景模板 × 实时 TTS × 多 Agent 讨论 × 游戏化积分 × Spotlight 聚光灯讲解</p>
+</div>
 
-<!-- <p align="center">
-  <img src="assets/logo-horizontal.png" alt="OpenMAIC" width="420"/>
-</p> -->
+---
+
+## 什么是 engpk？
+
+engpk 是一个 AI 驱动的互动学习课件生成工具。输入一个学习主题（如"学习英语单词 this 的用法"），AI 会自动：
+
+1. **规划课程结构**（8-12 页，混合多种互动场景）
+2. **生成教学大纲**（每页的知识点、概念、例子）
+3. **创建 AI 队友**（3 位性格各异的学习伙伴）
+4. **逐页生成内容**（视觉 blocks + 教学讲解 + 互动游戏）
+5. **实时播放课堂**（TTS 朗读 + Spotlight 高亮 + 弹幕互动）
+
+## 核心特性
+
+### 7 类互动场景
+
+| 场景 | 说明 |
+|------|------|
+| **封面** | AI 生成标题 + 风格 token + 封面图 |
+| **暖场** | 自研节奏游戏（4-6 lane 下落判定，LLM 生成 beatmap） |
+| **视频赏析** | 摄像头表演检测 + 积分奖励（监护人同意机制） |
+| **游戏** | LLM 自动设计 + 生成完整 HTML 小游戏（iframe 沙箱 + CSP） |
+| **讨论** | LangGraph 多 Agent 圆桌讨论 + 语音输入 + 5 分钟倒计时 |
+| **图文** | 两阶段生成（视觉 blocks + Spotlight 聚光灯讲解序列） |
+| **结尾** | 抽奖小游戏 + 鼓励语模板池（金额硬上限 5 元） |
+
+### AI 教学体验
+
+- **两阶段内容生成**：Stage 1 产出视觉内容 → Stage 2 专门产出 6-10 段教学讲解（50-150 字/段）
+- **Spotlight 聚光灯**：讲解时自动高亮对应内容块，其余暗化
+- **教学大纲扩写**：AI 把简短指令扩展为详细教学计划（keyPoints / 概念 / 例子 / 衔接语）
+- **跨页连贯性**：首页打招呼、中间衔接、末页总结，整课一气呵成
+
+### 游戏化互动
+
+- **AI 同学弹幕**：每 1-5 秒随机触发一条与当前内容相关的弹幕（LLM 实时生成）
+- **用户发言响应**：用户发弹幕后 1-3 秒，AI 同学积极回应
+- **全程积分**：答题、游戏、表演、讨论都能得分
+- **队友共振**：AI 同学的得分与用户表现联动
+
+### 专业语音
+
+- **14 种中文声音**：豆包 TTS 2.0（9 女 + 5 男），用户可选
+- **AI 同学独立声线**：每位 AI 同学自动分配不同声音
+- **浏览器降级**：TTS API 不可用时自动降级为 Web Speech API
+- **语音输入**：讨论场景支持按住说话（Web Speech Recognition）
+
+### 开发者友好
+
+- **指令 DSL**：`第N页：【模式】+描述+内容：XXX` 格式，正则解析 + LLM 兜底归一化
+- **AI 课程规划**：一键"AI 帮我规划课程"，从一句话生成完整指令集
+- **SSE 流式生成**：6 步进度面板实时展示（解析 → 队友 → 大纲 → 风格 → 内容 → 完成）
+- **PlaybackEngine**：四态机（idle/playing/paused/awaiting_user）+ 自动推进
+- **103 个单元测试** + Playwright E2E
+
+## 技术栈
+
+| 层 | 技术 |
+|----|------|
+| 框架 | Next.js 16 + React 19 + TypeScript |
+| 样式 | Tailwind CSS + Framer Motion |
+| 状态 | Zustand + 三总线（scoreBus / bulletBus / metricBus） |
+| AI | 支持 15+ LLM 供应商（Anthropic / OpenAI / Google / DeepSeek / Qwen / ...） |
+| 讨论 | LangGraph 多智能体导演图 |
+| 语音 | 豆包 TTS 2.0 + Web Speech API |
+| 数据库 | Prisma + PostgreSQL |
+| 游戏 | iframe sandbox + CSP + game-event 协议 |
+| 测试 | Vitest + Playwright |
+
+## 快速开始
+
+```bash
+# 1. 安装依赖
+pnpm install
+
+# 2. 配置环境变量
+cp .env.example .env.local
+# 编辑 .env.local，至少填入一个 LLM API key
+
+# 3. 启动开发服务器
+pnpm dev
+
+# 4. 访问
+open http://localhost:3000/new
+```
+
+## 使用方式
+
+### 方式 1：手动输入指令
+
+在 `/new` 页面的编辑器中输入：
+
+```
+第1页：【封面】+奇幻英语冒险+内容：Level 1 启程
+第2页：【图文】+认识 this+内容：this 作主语 / 宾语 / 定语
+第3页：【游戏】+单词闯关+内容：is, you, here, this
+第4页：【讨论】+如何使用 this？+内容：this 的四种用法
+第5页：【结尾】+闯关庆功+内容：本课共掌握 4 个词
+```
+
+### 方式 2：AI 一键规划
+
+点击"AI 帮我规划课程"按钮，输入主题（如"学习英语单词 apple banana orange"），AI 自动生成 8-12 页完整指令。
+
+## 项目结构
+
+```
+lib/engpk/
+  ├── instruction/     # 指令解析器（正则 + LLM 归一化）
+  ├── generation/      # 生成管线（大纲 → 队友 → 场景）
+  │   ├── prompts/     # 7 类场景 prompt + 共享片段
+  │   ├── scenes/      # 7 类场景生成器
+  │   └── mock/        # Mock 降级生成器
+  ├── types/           # 类型定义（Scene / Action / Teammate / Outline）
+  ├── store/           # Zustand 状态管理
+  ├── score/           # 积分总线
+  ├── bullet/          # 弹幕总线
+  ├── metric/          # 指标埋点
+  ├── chatter/         # AI 同学弹幕引擎
+  ├── audio/           # 声音配置
+  ├── game/            # 游戏协议 + 沙箱 + 校验器
+  ├── playback/        # PlaybackEngine 状态机
+  ├── action/          # ActionRuntime
+  ├── whiteboard/      # 白板桥接
+  └── client/          # React hooks（SSE / TTS / 快捷键 / 播放）
+
+components/
+  ├── scene-shell/     # 6 区块外壳（User/Teammate/Bullet/Input/Toc/Progress）
+  ├── scene-cover/     # 封面渲染器
+  ├── scene-warmup/    # 暖场（节奏游戏）
+  ├── scene-video-review/  # 视频赏析（摄像头）
+  ├── scene-game/      # 游戏（iframe 沙箱）
+  ├── scene-discussion/    # 讨论（圆桌 + 语音输入）
+  ├── scene-article/   # 图文（Spotlight + 白板）
+  ├── scene-ending/    # 结尾（抽奖 + 鼓励语）
+  └── engpk-editor/    # 指令编辑器 + 进度面板 + 声音选择
+```
+
+## 环境变量
+
+复制 `.env.example` 为 `.env.local`，按需填入：
+
+| 变量 | 说明 | 必填 |
+|------|------|------|
+| `ANTHROPIC_API_KEY` | Anthropic API key | 至少填一个 LLM |
+| `ENGPK_GENERATION_MODEL` | 生成用模型（默认 anthropic:claude-opus-4-7） | 否 |
+| `TTS_DOUBAO_API_KEY` | 豆包 TTS（格式：appId:accessKey） | 否（降级浏览器 TTS） |
+| `IMAGE_SEEDREAM_API_KEY` | 火山引擎图片生成 | 否（图片显示占位） |
+| `DATABASE_URL` | PostgreSQL 连接串 | 否（积分仅内存） |
+
+## 许可证
+
+AGPL-3.0
 
 <p align="center">
   <img src="assets/banner.png" alt="OpenMAIC Banner" width="680"/>
