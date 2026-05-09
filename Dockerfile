@@ -1,27 +1,26 @@
 # ─── Stage 1: Install dependencies ───────────────────────────────
-FROM node:20-alpine AS deps
+FROM node:20-slim AS deps
 WORKDIR /app
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma
 ENV DATABASE_URL="postgresql://x:x@localhost:5432/x"
-RUN pnpm install
+RUN pnpm install --ignore-scripts && npx prisma generate
 
 # ─── Stage 2: Generate Prisma + Build ────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Prisma generate (needs a dummy DATABASE_URL at build time)
 ENV DATABASE_URL="postgresql://x:x@localhost:5432/x"
-RUN npx prisma generate
-# Build Next.js (standalone output)
 RUN pnpm build
 
 # ─── Stage 3: Production runner ──────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 ENV PORT=3000
 
